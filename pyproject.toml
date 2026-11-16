@@ -1,0 +1,6 @@
+[project]
+name = "fix-forward-simulation"
+version = "0.1.0"
+description = "Fix Forward: live product-management simulation server and consoles"
+requires-python = ">=3.10"
+dependencies = []
