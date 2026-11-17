@@ -15,6 +15,7 @@ def make_cfg(events=None, **overrides):
     ev = dict(ALL_OFF)
     ev.update(events or {})
     overrides.setdefault("RECORD_SLICES", False)
+    overrides.setdefault("LIFTS", dict(config.LIFTS))  # placeholders, never the calibration file
     overrides["EVENTS_ENABLED"] = ev
     return config.load(overrides)
 

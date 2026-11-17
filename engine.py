@@ -73,7 +73,7 @@ def _lift_mult(state, seg, stage):
     m = 1.0
     for e in state["shipped"].values():
         if e["seg"] == seg and e["stage"] == stage:
-            m *= (1.0 - e["lift"]) if stage == "retention" else (1.0 + e["lift"])
+            m *= max(0.0, 1.0 - e["lift"]) if stage == "retention" else (1.0 + e["lift"])
     return m
 
 
@@ -673,6 +673,8 @@ def team_view(cfg, state, series_days=None, include_slices=False):
                           trust_effect=dict(c["trust"]), status=status,
                           bespoke=bool(c.get("bespoke"))))
     incidents = [dict(id=i["n"], symptom=cfg["INCIDENTS"][i["n"]]["symptom"],
+                      metric=cfg["INCIDENTS"][i["n"]]["stage"],
+                      options=list(cfg["INCIDENTS"][i["n"]]["causes"]),
                       since_day=i["opened_day"], patched=i["patched"])
                  for i in state["incidents"] if i["status"] == "open"]
     queue = [dict(id=it["id"], kind=it["kind"], label=it["label"], cost=it["cost"],
