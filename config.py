@@ -5,6 +5,8 @@ project defaults. Money is in rupees crore (Cr). ARR per account is therefore
 50 L = 0.5 Cr. Nothing in engine.py or bots.py may hard-code a game number.
 """
 import copy
+import json
+import os
 
 # --- time -----------------------------------------------------------------
 DAYS_PER_WEEK = 7
@@ -98,6 +100,12 @@ CARDS = [
 PLACEHOLDER_LIFT = 0.05
 LIFTS = {c["id"]: PLACEHOLDER_LIFT for c in CARDS
          if c["stage"] not in (None, "contract")}
+
+# Largest lift the calibrator may assign, by stage. Retention stays below 1 so
+# churn cannot reach zero or go negative.
+LIFT_CAPS = {"retention": 0.95, "default": 3.0}
+CALIBRATION_FILE = "calibration/lifts.json"
+CALIBRATION_TOLERANCE = 0.002   # Cr
 
 # --- reports --------------------------------------------------------------
 REPORT_COST = 4
@@ -226,13 +234,35 @@ HIDDEN_FIELD_NAMES = [
 ]
 
 
-def load(overrides=None):
-    """Return an independent configuration dict. Overrides use module names."""
+def _read_calibration(cfg):
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), cfg["CALIBRATION_FILE"])
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def load(overrides=None, calibrated=True):
+    """Return an independent configuration dict. Overrides use module names.
+
+    Solved lifts and tuned noise from the calibration file replace the
+    placeholders unless calibrated is False or an override names that key.
+    """
+    overrides = overrides or {}
     cfg = {k: copy.deepcopy(v) for k, v in globals().items()
            if k.isupper() and not k.startswith("_")}
-    for key, value in (overrides or {}).items():
+    for key, value in overrides.items():
         if key not in cfg:
             raise KeyError("unknown config key: %s" % key)
         cfg[key] = copy.deepcopy(value)
+    data = _read_calibration(cfg) if calibrated else None
+    if data:
+        if "LIFTS" not in overrides:
+            for cid, lift in data.get("lifts", {}).items():
+                if cid not in cfg["LIFTS"]:
+                    raise ValueError("calibration file names unknown card: %s" % cid)
+                cfg["LIFTS"][cid] = lift
+        if "NOISE" not in overrides:
+            cfg["NOISE"].update(data.get("noise", {}))
     cfg["CARD_BY_ID"] = {c["id"]: c for c in cfg["CARDS"]}
     return cfg

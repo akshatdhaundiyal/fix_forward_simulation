@@ -15,7 +15,7 @@ class ConfigTests(unittest.TestCase):
     def test_load_returns_independent_copy(self):
         a = config.load()
         a["LIFTS"]["A1"] = 0.9
-        self.assertEqual(config.load()["LIFTS"]["A1"], config.PLACEHOLDER_LIFT)
+        self.assertEqual(config.load(calibrated=False)["LIFTS"]["A1"], config.PLACEHOLDER_LIFT)
 
     def test_card_table_matches_spec(self):
         cfg = config.load()
