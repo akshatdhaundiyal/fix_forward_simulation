@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 .venv/
 state/
+web/node_modules/

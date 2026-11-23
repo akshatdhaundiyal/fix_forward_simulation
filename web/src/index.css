@@ -1,0 +1,114 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/playfair-display";
+
+/*
+  Light theme only. Style reference: white pages, near-black text, hairline
+  borders, soft grey cards with large radii, pill buttons, monospace eyebrow
+  labels and a serif for titles and key numbers.
+*/
+
+@theme inline {
+    --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+    --font-serif: 'Playfair Display Variable', ui-serif, Georgia, serif;
+    --font-heading: var(--font-sans);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-success: var(--success);
+    --color-warning: var(--warning);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+    --shadow-soft: 0 1px 2px oklch(0.2 0 0 / 0.04), 0 8px 24px -12px oklch(0.2 0 0 / 0.08);
+}
+
+:root {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.18 0 0);
+    --card: oklch(0.977 0.002 260);
+    --card-foreground: oklch(0.18 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.18 0 0);
+    --primary: oklch(0.18 0 0);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.96 0.002 260);
+    --secondary-foreground: oklch(0.18 0 0);
+    --muted: oklch(0.96 0.002 260);
+    --muted-foreground: oklch(0.52 0.005 260);
+    --accent: oklch(0.955 0.003 260);
+    --accent-foreground: oklch(0.18 0 0);
+    --destructive: oklch(0.577 0.22 27);
+    --success: oklch(0.62 0.15 150);
+    --warning: oklch(0.75 0.15 75);
+    --border: oklch(0.915 0.003 260);
+    --input: oklch(0.915 0.003 260);
+    --ring: oklch(0.7 0.01 260);
+    --chart-1: oklch(0.18 0 0);
+    --chart-2: oklch(0.68 0.17 150);
+    --chart-3: oklch(0.78 0.16 85);
+    --chart-4: oklch(0.7 0.18 45);
+    --chart-5: oklch(0.6 0.12 255);
+    --radius: 0.75rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans antialiased;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv11", "ss01";
+  }
+  h1, h2, h3 {
+    @apply tracking-tight;
+  }
+}
+
+@layer components {
+  /* Small uppercase monospace label, as on the reference site. */
+  .eyebrow {
+    @apply font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground;
+  }
+  /* Large serif title or key number. */
+  .display {
+    @apply font-serif tracking-tight;
+  }
+  .surface {
+    @apply rounded-2xl border bg-card shadow-soft;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}

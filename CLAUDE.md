@@ -13,8 +13,8 @@ If this file and the spec disagree on a game rule, the spec wins. If the spec is
 
 ## Hard constraints
 
-1. **Python 3.10+, standard library only.** No pip installs, no Node, no build step. It must start with `python3 server.py` on a laptop with no internet.
-2. **Front end is plain HTML, CSS and JavaScript**, one file per screen, no CDN links, no frameworks. Charts are drawn with inline SVG or canvas.
+1. **Python 3.10+, standard library only at runtime.** No pip installs. It must start with `python3 server.py` on a laptop with no internet and no Node. Node is a build-time tool for the front end only (constraint 2).
+2. **The front end is built in `web/`** with Vite, React, TypeScript, Tailwind and shadcn/ui, and compiles into `static/`. **The built output in `static/` is committed**, so no event or spare laptop needs Node, a build step or internet. Everything is bundled: no CDN links, no external fonts or scripts, relative URLs only. Rebuild with `npm --prefix web run build` before committing any change under `web/`. (Amended 23 November 2026 at the organiser's direction; the earlier rule was plain HTML, CSS and JavaScript. See `DECISIONS.md` Part 2.)
 3. **Hidden values never reach a team's browser.** True lifts, target gains, risk points, UOD, NEV, incident causes and other teams' private state are server-only. Write a test that fetches every team endpoint and fails if any hidden field name appears.
 4. **The engine is deterministic.** State is a pure function of (config, seed, action log). Display noise is seeded per team and never feeds back into state. Write a test that replays an action log and gets identical state.
 5. **Every game number lives in one config module.** No magic numbers in engine or server code.
@@ -29,10 +29,8 @@ engine.py        pure simulation: step(state, day) and apply(state, action)
 bots.py          scripted strategies + headless runner + results table
 calibrate.py     solves feature lifts to hit target gains
 server.py        HTTP server, clock loop, auth, snapshots, action log
-static/team.html
-static/projector.html
-static/stakeholder.html
-static/admin.html
+web/             front-end source (Vite + React + shadcn/ui); one HTML entry per screen
+static/           built output of web/, committed: index.html (join), team.html, later projector, stakeholder, admin
 tests/
 DECISIONS.md     design history (Part 1, provided) and your build decisions (Part 2)
 ```
