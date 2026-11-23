@@ -24,6 +24,21 @@ import game as gamemod
 ROOT = os.path.dirname(os.path.abspath(__file__))
 ADMIN_HEADER = "X-Admin-Password"
 
+# Web asset types are fixed here because mimetypes reads the Windows registry,
+# which on some machines maps .js to text/plain and makes browsers refuse
+# module scripts. Anything not listed falls back to mimetypes.
+WEB_CONTENT_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".mjs": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".json": "application/json",
+    ".map": "application/json",
+    ".svg": "image/svg+xml",
+    ".woff2": "font/woff2",
+    ".ico": "image/x-icon",
+}
+
 
 class App:
     def __init__(self, game, admin_password, stakeholder_password, static_root=None):
@@ -193,7 +208,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._error(404, "not found")
         with open(full, "rb") as f:
             body = f.read()
-        ctype = mimetypes.guess_type(full)[0] or "application/octet-stream"
+        ctype = (WEB_CONTENT_TYPES.get(os.path.splitext(full)[1].lower())
+                 or mimetypes.guess_type(full)[0] or "application/octet-stream")
         self._send(200, body, ctype)
 
 
