@@ -115,7 +115,7 @@ CALIBRATION_TOLERANCE = 0.002   # Cr
 
 # --- reports --------------------------------------------------------------
 REPORT_COST = 4
-UTILITY_SCALE = 100        # utility = round(scale x target gain / pitch ARR)
+UTILITY_SCALE = 100        # utility = round(scale x calibrated gain / pitch ARR); target gain if none (CALIBRATED_GAIN)
 
 # --- bespoke contracts ----------------------------------------------------
 B1_CARD = "B1"

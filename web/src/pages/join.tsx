@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react"
 import { Brand } from "@/components/brand"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { createApi } from "@/lib/api"
 import { consoleUrl, normalizeCode, recallCode, rememberCode } from "@/lib/team-code"
 
 type Check = "idle" | "checking" | "unknown" | "offline"
@@ -18,12 +19,12 @@ export function JoinPage() {
     setCheck("checking")
     try {
       // days=1 keeps the check small; a wrong code gets the same 404 every time.
-      const resp = await fetch(`api/team/${clean}/view?days=1`, { cache: "no-store" })
-      if (resp.status === 404) {
+      const result = await createApi().view(clean, { days: 1 })
+      if (result.kind === "invalid-code") {
         setCheck("unknown")
         return
       }
-      if (!resp.ok) {
+      if (result.kind === "degraded") {
         setCheck("offline")
         return
       }

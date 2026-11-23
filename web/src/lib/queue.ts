@@ -28,6 +28,8 @@ export function latestUtility(reports: Report[], card: Card): { value: number; d
   return best
 }
 
+// The engine refuses to roll back a bespoke contract or a card with no funnel
+// stage (the standing company cards), so those are never offered.
 export function rollbackCandidates(view: TeamView): Card[] {
-  return view.cards.filter((c) => c.status === "shipped" && !c.bespoke)
+  return view.cards.filter((c) => c.status === "shipped" && !c.bespoke && c.stage !== null)
 }

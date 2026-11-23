@@ -2,6 +2,11 @@ import type { Clock, TeamAction, TeamView } from "./types"
 
 // Relative URLs only: the console works under any host or path.
 
+// A stalled request must fail rather than hang, or polling stops and the
+// console freezes on its last state. The slice view is much larger, so it gets longer.
+export const REQUEST_TIMEOUT_MS = 8000
+export const HEAVY_REQUEST_TIMEOUT_MS = 20000
+
 export type ViewResult =
   | { kind: "ok"; clock: Clock; view: TeamView; etag: string | null }
   | { kind: "same" }
@@ -27,7 +32,7 @@ type Fetch = typeof fetch
 export function createApi(fetchFn: Fetch = (...args) => fetch(...args)): Api {
   return {
     async clock() {
-      const resp = await fetchFn("api/clock", { cache: "no-store" })
+      const resp = await fetchFn("api/clock", { cache: "no-store", signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
       if (!resp.ok) throw new Error(`clock ${resp.status}`)
       return (await resp.json()) as Clock
     },
@@ -42,6 +47,7 @@ export function createApi(fetchFn: Fetch = (...args) => fetch(...args)): Api {
       const resp = await fetchFn(`api/team/${encodeURIComponent(code)}/view${query ? `?${query}` : ""}`, {
         headers,
         cache: "no-store",
+        signal: AbortSignal.timeout(opts.slices ? HEAVY_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS),
       })
       if (resp.status === 304) return { kind: "same" }
       if (resp.status === 404) return { kind: "invalid-code" }
@@ -58,6 +64,7 @@ export function createApi(fetchFn: Fetch = (...args) => fetch(...args)): Api {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action }),
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         })
       } catch {
         return { ok: false, error: "Could not reach the server. Check the connection and try again." }

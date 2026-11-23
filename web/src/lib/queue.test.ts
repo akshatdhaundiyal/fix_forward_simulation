@@ -59,12 +59,13 @@ describe("latestUtility", () => {
 })
 
 describe("rollbackCandidates", () => {
-  it("lists shipped cards that are not bespoke contracts", () => {
+  it("lists shipped cards that are not bespoke contracts and have a funnel stage", () => {
     const view = {
       cards: [
-        { id: "A1", status: "shipped", bespoke: false },
-        { id: "B1", status: "shipped", bespoke: true },
-        { id: "A2", status: "available", bespoke: false },
+        { id: "A1", status: "shipped", bespoke: false, stage: "paid" },
+        { id: "B1", status: "shipped", bespoke: true, stage: "contract" },
+        { id: "D4", status: "shipped", bespoke: false, stage: null },
+        { id: "A2", status: "available", bespoke: false, stage: "activation" },
       ],
     } as unknown as TeamView
     expect(rollbackCandidates(view).map((c) => c.id)).toEqual(["A1"])
