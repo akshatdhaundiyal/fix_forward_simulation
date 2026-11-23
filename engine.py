@@ -261,7 +261,8 @@ def _complete_item(cfg, state, item):
         _ship_card(cfg, state, item)
     elif kind == "report":
         seg = item["seg"]
-        util = {cid: int(round(cfg["UTILITY_SCALE"] * cfg["CARD_BY_ID"][cid]["gain"]
+        util = {cid: int(round(cfg["UTILITY_SCALE"]
+                               * cfg["CALIBRATED_GAIN"].get(cid, cfg["CARD_BY_ID"][cid]["gain"])
                                / cfg["CARD_BY_ID"][cid]["pitch"]))
                 for cid in item["avail"]}
         state["reports"].append(dict(seg=seg, day=state["day"], utility=util,
