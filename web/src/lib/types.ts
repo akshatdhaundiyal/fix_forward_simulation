@@ -96,6 +96,13 @@ export interface FunnelPoint {
   slices?: Record<string, Record<RateKey, number>>
 }
 
+export interface TelemetryPoint {
+  day: number
+  error_rate: number
+  p99_ms: number
+  tickets: Record<SegmentId, number>
+}
+
 export interface TeamView {
   team: number
   day: number
@@ -115,7 +122,7 @@ export interface TeamView {
   b1: { window_open: boolean; applied: boolean; awarded: boolean }
   releases: Release[]
   funnel: Record<SegmentId, FunnelPoint[]>
-  telemetry: unknown[]
+  telemetry: TelemetryPoint[]
 }
 
 // Team actions the server accepts (config.ACTION_SPECS, caller "team").

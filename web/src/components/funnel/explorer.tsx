@@ -4,8 +4,11 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { RATE_LABELS, metricToRate } from "@/lib/format"
 import { METRIC_OPTIONS, SLICE_GROUPS, buildSeries, releaseMarkers, type Metric } from "@/lib/funnel"
 import { SEGMENTS, SEGMENT_NAMES, type SegmentId, type TeamView } from "@/lib/types"
+import { useWindowView } from "@/lib/use-window-view"
 import { SeriesChart } from "./series-chart"
-import { useHeavyView } from "./use-heavy-view"
+
+// A quarter of days with slice data.
+const EXPLORER_WINDOW = { days: 91, slices: true }
 
 const NO_SLICE = "all"
 
@@ -31,7 +34,7 @@ export function Explorer({
   // The ordinary view, used for release markers and the open incident's metric.
   light: TeamView
 }) {
-  const heavy = useHeavyView(code, pollSeconds)
+  const heavy = useWindowView(code, pollSeconds, EXPLORER_WINDOW)
   const incident = light.incidents[0]
   const [seg, setSeg] = useState<SegmentId>("W")
   const [metric, setMetric] = useState<Metric>(() => (incident ? metricToRate(incident.metric) : "activation"))
