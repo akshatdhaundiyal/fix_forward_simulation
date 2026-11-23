@@ -220,6 +220,84 @@ EVENTS_ENABLED = {"incidents": True, "peak_season": True, "churn_alerts": True}
 # --- numerics -------------------------------------------------------------
 FLOAT_EPS = 1e-9
 
+# --- server ---------------------------------------------------------------
+BIND_HOST = "0.0.0.0"
+SERVER_PORT = 8000
+STATE_DIR = "state"
+LOG_FILE = "events.jsonl"
+SNAPSHOT_DIR = "snapshots"
+REGISTRY_FILE = "teams.json"
+STATIC_DIR = "static"
+NUM_TEAMS = 16
+TEAM_CODE_LENGTH = 6
+TEAM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"   # no 0, O, 1, I
+GAME_SEED = 20261204
+LOG_FSYNC = True                       # force every logged line to disk
+RECOVERY_BUDGET_SECONDS = 60
+
+# --- clock ----------------------------------------------------------------
+SECONDS_PER_DAY = 13.0
+SPEED_CHOICES = [0.5, 1, 2, 4, 10]
+CHECKPOINT_WEEKS = [13, 26, 39]
+CHECKPOINT_PAUSE_SECONDS = 420
+CHECKPOINT_WARNING_SECONDS = 30
+CLOCK_POLL_SECONDS = 0.05              # how often the runner asks the clock what is due
+
+# --- snapshots ------------------------------------------------------------
+SNAPSHOT_INTERVAL_SECONDS = 5
+SNAPSHOT_KEEP_RECENT = 12
+SNAPSHOT_SWAP_RETRIES = 5
+SNAPSHOT_SWAP_RETRY_SECONDS = 0.02
+
+# --- http -----------------------------------------------------------------
+VIEW_DEFAULT_SERIES_DAYS = 28
+VIEW_MAX_SERIES_DAYS = 364
+MAX_REQUEST_BYTES = 8192
+MAX_STRING_LENGTH = 64
+MAX_TEXT_LENGTH = 500
+MAX_NUMBER = 1e9
+TEAM_POLL_SECONDS = 3                  # hints sent to browsers, which never hard-code them
+PROJECTOR_POLL_SECONDS = 2
+
+# --- who may submit which actions ----------------------------------------
+# Field kinds: str (short), text (long), int, number (int or float), scalar (number or str).
+ACTION_SPECS = {
+    "queue_add": dict(fields=dict(card="str", report="str"), one_of=["card", "report"]),
+    "queue_remove": dict(fields=dict(item="int"), required=["item"]),
+    "queue_reorder": dict(fields=dict(item="int", position="int"), required=["item", "position"]),
+    "set_quality": dict(fields=dict(mode="str"), required=["mode"]),
+    "rollback": dict(fields=dict(card="str"), required=["card"]),
+    "targeted_fix": dict(fields=dict(incident="int", cause="str"), required=["incident", "cause"]),
+    "patch": dict(fields=dict(incident="int"), required=["incident"]),
+    "apply_b1": dict(fields={}),
+    "trigger_incident": dict(fields=dict(incident="int"), required=["incident"]),
+    "cancel_incident": dict(fields=dict(incident="int"), required=["incident"]),
+    "admin_edit": dict(fields=dict(path="str", value="scalar", reason="text"),
+                       required=["path", "value", "reason"]),
+    "decline_result": dict(fields=dict(ticks="int"), required=["ticks"]),
+    "award_bespoke": dict(fields={}),
+}
+CALLER_ACTIONS = {
+    "team": ["queue_add", "queue_remove", "queue_reorder", "set_quality", "rollback",
+             "targeted_fix", "patch", "apply_b1"],
+    "admin": ["trigger_incident", "cancel_incident", "admin_edit", "decline_result"],
+    "system": ["award_bespoke"],
+}
+
+# Settings that may differ between runs of the same game. Everything else is
+# part of the game and is recorded as a digest when a game starts.
+SERVER_ONLY_KEYS = [
+    "BIND_HOST", "SERVER_PORT", "STATE_DIR", "LOG_FILE", "SNAPSHOT_DIR", "REGISTRY_FILE",
+    "STATIC_DIR", "NUM_TEAMS", "TEAM_CODE_LENGTH", "TEAM_CODE_ALPHABET", "LOG_FSYNC",
+    "RECOVERY_BUDGET_SECONDS", "SECONDS_PER_DAY", "SPEED_CHOICES", "CHECKPOINT_PAUSE_SECONDS",
+    "CHECKPOINT_WARNING_SECONDS", "CLOCK_POLL_SECONDS", "SNAPSHOT_INTERVAL_SECONDS",
+    "SNAPSHOT_KEEP_RECENT", "SNAPSHOT_SWAP_RETRIES", "SNAPSHOT_SWAP_RETRY_SECONDS",
+    "VIEW_DEFAULT_SERIES_DAYS", "VIEW_MAX_SERIES_DAYS", "MAX_REQUEST_BYTES",
+    "MAX_STRING_LENGTH", "MAX_TEXT_LENGTH", "MAX_NUMBER", "TEAM_POLL_SECONDS", "PROJECTOR_POLL_SECONDS",
+    "ACTION_SPECS", "CALLER_ACTIONS", "CALIBRATION_FILE", "RECORD_HISTORY", "RECORD_SLICES",
+    "TELEMETRY_WINDOW_DAYS", "CALIBRATION_TOLERANCE",
+]
+
 # --- recording ------------------------------------------------------------
 RECORD_HISTORY = True
 RECORD_SLICES = True

@@ -6,6 +6,7 @@ the same state. Nothing here reads a clock or draws a random number. Display
 noise is hashed from (seed, team, series, day) and never feeds back into state.
 """
 import hashlib
+import json
 
 # --- calendar -------------------------------------------------------------
 def week_of(cfg, day):
@@ -584,6 +585,13 @@ def replay(cfg, seed, team_no, log, until_day=None):
     for action in by_day.get(end, []):
         apply(cfg, state, action)
     return state
+
+
+# --- digest ---------------------------------------------------------------
+def state_digest(state):
+    """Hash of a team's state without its per-day history (history is derived)."""
+    body = {k: v for k, v in state.items() if k != "history"}
+    return hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
 # --- scoring --------------------------------------------------------------
