@@ -98,17 +98,25 @@ def play(client, teams, advance, report=None):
         advance()
 
 
-def wait_for_next_day(client, poll=0.02, timeout=60):
-    """advance() for a live server: block until the server's day changes."""
+def wait_for_next_day(client, poll=0.02, timeout=60, now=time.time, sleep=time.sleep):
+    """advance() for a live server: block until the server's day changes.
+
+    A paused clock (a checkpoint break, or the operator) is waiting, not
+    stalling, so only a running clock whose day does not move for `timeout`
+    seconds is an error.
+    """
     def advance():
         start = client.request("GET", "/api/clock")[1]["day"]
-        deadline = time.time() + timeout
-        while time.time() < deadline:
+        deadline = now() + timeout
+        while True:
             clock = client.request("GET", "/api/clock")[1]
             if clock["finished"] or clock["day"] != start:
                 return
-            time.sleep(poll)
-        raise RuntimeError("the server's day did not change in %s seconds" % timeout)
+            if not clock["running"]:
+                deadline = now() + timeout
+            elif now() >= deadline:
+                raise RuntimeError("the server's day did not change in %s seconds" % timeout)
+            sleep(poll)
     return advance
 
 

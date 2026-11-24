@@ -20,6 +20,7 @@ export function useAdmin(password: string, onUnauthorized: () => void): AdminSta
   const [status, setStatus] = useState<AdminStatus | null>(null)
   const [snapshots, setSnapshots] = useState<SnapshotInfo[]>([])
   const [offline, setOffline] = useState(false)
+  const pending = useRef(false)
   const unauthorized = useRef(onUnauthorized)
   unauthorized.current = onUnauthorized
 
@@ -51,7 +52,16 @@ export function useAdmin(password: string, onUnauthorized: () => void): AdminSta
 
   const run = useCallback(
     async (op: () => Promise<AdminResult>, success?: string) => {
-      const result = await op()
+      // One operation at a time: a second click while one is in flight would
+      // repeat a clock extension or an incident trigger.
+      if (pending.current) return false
+      pending.current = true
+      let result: AdminResult
+      try {
+        result = await op()
+      } finally {
+        pending.current = false
+      }
       if (!result.ok) {
         if (result.unauthorized) unauthorized.current()
         else toast.error(result.error)

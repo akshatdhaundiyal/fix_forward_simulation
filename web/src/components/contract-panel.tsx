@@ -21,6 +21,11 @@ const COPY: Record<ContractState, { label: string; text: (c: Calendar) => string
     icon: FileSignature,
     text: () => "Your application is in. The result is announced when applications close.",
   },
+  pending: {
+    label: "Result due",
+    icon: Clock3,
+    text: () => "Applications have closed. The result is announced at the next update.",
+  },
   awarded: {
     label: "Awarded",
     icon: Award,
@@ -33,9 +38,19 @@ const COPY: Record<ContractState, { label: string; text: (c: Calendar) => string
   },
 }
 
-export function ContractPanel({ b1, week, calendar }: { b1: TeamView["b1"]; week: number; calendar: Calendar | null }) {
+export function ContractPanel({
+  b1,
+  day,
+  week,
+  calendar,
+}: {
+  b1: TeamView["b1"]
+  day: number
+  week: number
+  calendar: Calendar | null
+}) {
   if (!calendar) return null
-  const state = contractState(b1, week, calendar)
+  const state = contractState(b1, day, week, calendar)
   const { label, text, icon: Icon } = COPY[state]
   return (
     <section className="surface flex items-start gap-4 p-5">

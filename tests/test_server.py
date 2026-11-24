@@ -179,6 +179,7 @@ class CalendarRouteTests(ServerCase):
         self.assertEqual(cal["weeks_per_quarter"], cfg["WEEKS_PER_QUARTER"])
         self.assertEqual(cal["checkpoint_weeks"], [13, 26, 39])
         self.assertEqual(cal["weeks"], cfg["WEEKS"])
+        self.assertEqual(cal["days_per_week"], cfg["DAYS_PER_WEEK"])
 
     def test_calendar_follows_config(self):
         self.g.cfg["PEAK_START_WEEK"] = 20

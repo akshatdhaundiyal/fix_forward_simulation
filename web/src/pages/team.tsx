@@ -122,7 +122,7 @@ function Console({ code }: { code: string }) {
 
             <TabsContent value="roadmap" className="flex flex-col gap-6">
               <QualityControl mode={view.quality} />
-              <ContractPanel b1={view.b1} week={clock.week} calendar={calendar} />
+              <ContractPanel b1={view.b1} day={clock.day} week={clock.week} calendar={calendar} />
               <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
                 <CardCatalog view={view} />
                 <div className="xl:sticky xl:top-6">

@@ -106,6 +106,7 @@ export interface TelemetryPoint {
 export interface Calendar {
   weeks: number
   weeks_per_quarter: number
+  days_per_week: number
   checkpoint_weeks: number[]
   surge: { start: number; end: number }
   contract_window: { first: number; last: number }

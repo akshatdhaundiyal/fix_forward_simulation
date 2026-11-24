@@ -346,6 +346,7 @@ class Game:
         cfg = self.cfg
         return dict(
             weeks=cfg["WEEKS"], weeks_per_quarter=cfg["WEEKS_PER_QUARTER"],
+            days_per_week=cfg["DAYS_PER_WEEK"],
             checkpoint_weeks=list(cfg["CHECKPOINT_WEEKS"]),
             surge=dict(start=cfg["PEAK_START_WEEK"], end=cfg["PEAK_END_WEEK"]),
             contract_window=dict(first=cfg["B1_APPLY_FIRST_WEEK"], last=cfg["B1_APPLY_LAST_WEEK"]))
