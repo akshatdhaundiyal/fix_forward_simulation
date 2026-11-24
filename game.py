@@ -380,6 +380,7 @@ class Game:
                 last_snapshot_age=(None if self.last_snapshot_wall is None
                                    else time.time() - self.last_snapshot_wall),
                 revealed=self.revealed, boot=self.boot,
+                speed_choices=list(self.cfg["SPEED_CHOICES"]),
                 teams=[dict(team=t["team"], name=t["name"], code=t["code"])
                        for t in self.registry["teams"]])
 

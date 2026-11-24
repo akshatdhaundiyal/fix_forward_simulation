@@ -252,6 +252,10 @@ class AdminRouteTests(ServerCase):
         self.assertEqual({t["team"]: t["code"] for t in data["teams"]}, self.codes)
         self.assertIsNone(data["degraded"])
 
+    def test_status_offers_the_configured_speed_choices(self):
+        data = self.admin("GET", "/api/admin/status")[1]
+        self.assertEqual(data["speed_choices"], self.g.cfg["SPEED_CHOICES"])
+
     def test_clock_controls_over_http_change_the_clock_and_are_logged(self):
         before = self.g.log.seq
         self.assertEqual(self.admin("POST", "/api/admin/clock", dict(op="resume"))[0], 200)
