@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { Button } from "@/components/ui/button"
 import { ActionsProvider } from "@/components/actions"
 import { Brand } from "@/components/brand"
+import { Bookings } from "@/components/bookings"
 import { CalendarStrip } from "@/components/calendar"
 import { CardCatalog } from "@/components/card-catalog"
 import { ClockBar } from "@/components/clock-bar"
@@ -24,7 +25,7 @@ import { useCalendar } from "@/lib/use-calendar"
 import { useGame } from "@/lib/usegame"
 import { cn } from "@/lib/utils"
 
-type Tab = "overview" | "roadmap" | "reports" | "funnel" | "operations" | "incidents"
+type Tab = "overview" | "roadmap" | "reports" | "funnel" | "operations" | "incidents" | "stakeholders"
 
 const TABS: { value: Tab; label: string }[] = [
   { value: "overview", label: "Overview" },
@@ -33,6 +34,7 @@ const TABS: { value: Tab; label: string }[] = [
   { value: "funnel", label: "Funnel" },
   { value: "operations", label: "Operations" },
   { value: "incidents", label: "Incidents" },
+  { value: "stakeholders", label: "Stakeholders" },
 ]
 
 function InvalidCode() {
@@ -141,6 +143,10 @@ function Console({ code }: { code: string }) {
 
             <TabsContent value="operations">
               <Operations code={code} pollSeconds={clock.poll_seconds} light={view} />
+            </TabsContent>
+
+            <TabsContent value="stakeholders">
+              <Bookings code={code} pollSeconds={clock.poll_seconds} />
             </TabsContent>
 
             <TabsContent value="incidents">

@@ -1,3 +1,4 @@
+import type { BookingsView } from "./bookings"
 import type { Calendar, Clock, TeamAction, TeamView } from "./types"
 
 // Relative URLs only: the console works under any host or path.
@@ -89,4 +90,44 @@ export async function fetchCalendar(fetchFn: Fetch = (...args) => fetch(...args)
   const resp = await fetchFn("api/calendar", { cache: "no-store", signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
   if (!resp.ok) throw new Error(`calendar ${resp.status}`)
   return (await resp.json()) as Calendar
+}
+
+// Stakeholder places for one team. Fetched on its own slower schedule, only
+// while the Stakeholders tab is open.
+export async function fetchBookings(
+  code: string,
+  fetchFn: Fetch = (...args) => fetch(...args),
+): Promise<BookingsView> {
+  const resp = await fetchFn(`api/team/${encodeURIComponent(code)}/bookings`, {
+    cache: "no-store",
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  })
+  if (!resp.ok) throw new Error(`bookings ${resp.status}`)
+  return (await resp.json()) as BookingsView
+}
+
+export async function bookStakeholder(
+  code: string,
+  role: string,
+  fetchFn: Fetch = (...args) => fetch(...args),
+): Promise<ActionOutcome> {
+  let resp: Response
+  try {
+    resp = await fetchFn(`api/team/${encodeURIComponent(code)}/bookings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    })
+  } catch {
+    return { ok: false, error: "Could not reach the server. Check the connection and try again." }
+  }
+  let body: { ok?: boolean; error?: string } = {}
+  try {
+    body = await resp.json()
+  } catch {
+    // Fall through to the generic message below.
+  }
+  if (resp.ok && body.ok !== false) return { ok: true }
+  return { ok: false, error: body.error ?? "The server did not accept that booking." }
 }

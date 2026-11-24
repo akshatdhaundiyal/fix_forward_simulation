@@ -23,6 +23,7 @@ import game as gamemod
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 ADMIN_HEADER = "X-Admin-Password"
+STAKEHOLDER_HEADER = "X-Stakeholder-Password"
 
 # Web asset types are fixed here because mimetypes reads the Windows registry,
 # which on some machines maps .js to text/plain and makes browsers refuse
@@ -93,6 +94,10 @@ class Handler(BaseHTTPRequestHandler):
         given = self.headers.get(ADMIN_HEADER, "")
         return hmac.compare_digest(given.encode(), self.app.admin_password.encode())
 
+    def _is_stakeholder(self):
+        given = self.headers.get(STAKEHOLDER_HEADER, "")
+        return hmac.compare_digest(given.encode(), self.app.stakeholder_password.encode())
+
     # --- routing ----------------------------------------------------------
     def do_GET(self):
         self._route("GET")
@@ -130,6 +135,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, app.game.projector())
         if parts[:1] == ["team"] and len(parts) == 3:
             return self._team(method, parts[1], parts[2], query)
+        if parts[:1] == ["stakeholder"] and len(parts) == 2:
+            if not self._is_stakeholder():
+                return self._error(401, "unauthorized")
+            return self._stakeholder(method, parts[1])
         if parts[:1] == ["admin"] and len(parts) == 2:
             if not self._is_admin():
                 return self._error(401, "unauthorized")
@@ -160,7 +169,33 @@ class Handler(BaseHTTPRequestHandler):
                 return self._error(400, "bad request")
             result = game.submit(team, data["action"], "team")
             return self._json(200 if result.get("ok") else 400, result)
+        if what == "bookings" and method == "GET":
+            return self._json(200, game.team_bookings(team))
+        if what == "bookings" and method == "POST":
+            data = self._body()
+            if data is None or not isinstance(data.get("role"), str):
+                return self._error(400, "bad request")
+            result = game.book(team, data["role"])
+            return self._json(200 if result.get("ok") else 400, result)
         return self._error(404, "not found")
+
+    # --- stakeholder routes -----------------------------------------------
+    def _stakeholder(self, method, what):
+        game = self.app.game
+        if method == "GET" and what == "board":
+            return self._json(200, game.stakeholder_board())
+        if method != "POST":
+            return self._error(404, "not found")
+        data = self._body()
+        if data is None:
+            return self._error(400, "bad request")
+        if what == "done":
+            result = game.mark_done(data.get("booking"))
+        elif what == "decline":
+            result = game.stakeholder_decline(data.get("team"), data.get("ticks"))
+        else:
+            return self._error(404, "not found")
+        return self._json(200 if result.get("ok") else 400, result)
 
     # --- admin routes -----------------------------------------------------
     def _admin(self, method, what):
