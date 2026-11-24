@@ -16,29 +16,38 @@ export interface BookingsState {
 export function useBookings(code: string, pollSeconds: number): BookingsState {
   const [view, setView] = useState<BookingsView | null>(null)
   const [offline, setOffline] = useState(false)
-  const alive = useRef(true)
+  const mounted = useRef(true)
 
   const refresh = useCallback(async () => {
     try {
       const next = await fetchBookings(code)
-      if (!alive.current) return
+      if (!mounted.current) return
       setView(next)
       setOffline(false)
     } catch {
-      if (alive.current) setOffline(true)
+      if (mounted.current) setOffline(true)
     }
   }, [code])
 
   useEffect(() => {
-    alive.current = true
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+
+  // The stop flag belongs to one effect run, so a changed code or poll interval
+  // cannot revive the previous loop.
+  useEffect(() => {
+    let stopped = false
     let timer: ReturnType<typeof setTimeout> | undefined
     const loop = async () => {
       await refresh()
-      if (alive.current) timer = setTimeout(loop, pollSeconds * BOOKINGS_POLL_MULTIPLE * 1000)
+      if (!stopped) timer = setTimeout(loop, pollSeconds * BOOKINGS_POLL_MULTIPLE * 1000)
     }
     void loop()
     return () => {
-      alive.current = false
+      stopped = true
       if (timer) clearTimeout(timer)
     }
   }, [refresh, pollSeconds])

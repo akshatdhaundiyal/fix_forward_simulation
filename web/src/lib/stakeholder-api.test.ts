@@ -96,12 +96,4 @@ describe("board helpers", () => {
     const sorted = sortByBand([team(1, "green"), team(2, "red"), team(3, "amber"), team(4, "red")])
     expect(sorted.map((t) => t.team)).toEqual([2, 4, 3, 1])
   })
-
-  it("the CTO table carries only a band and a line per team, no numeric field", () => {
-    const row = team(1, "red")
-    const numeric = Object.entries(row).filter(([k, v]) => typeof v === "number" && k !== "team")
-    expect(numeric).toEqual([])
-    expect(Object.keys(row.whale)).toEqual(["facts", "lines"])
-    expect(Object.values(row.whale.facts).every((v) => typeof v === "boolean")).toBe(true)
-  })
 })

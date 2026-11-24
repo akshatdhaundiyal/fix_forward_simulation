@@ -105,6 +105,52 @@ class DeclineTests(unittest.TestCase):
         self.assertTrue(again.stakeholder_board()["teams"][1]["declined"])
 
 
+class AdminDeclineTests(unittest.TestCase):
+    def test_the_admin_route_follows_the_same_once_per_team_rule_in_either_order(self):
+        g, ft, d = gh.open_game(self)
+        before = g.states[1]["seg"]["W"]["trust"]
+        self.assertTrue(g.stakeholder_decline(1, 3)["ok"])
+        res = g.decline_result(1, 0)
+        self.assertFalse(res["ok"])
+        self.assertIn("admin edit", res["error"])
+        self.assertEqual(g.states[1]["seg"]["W"]["trust"], before + 5)
+        self.assertTrue(g.decline_result(2, 1)["ok"])
+        self.assertFalse(g.stakeholder_decline(2, 3)["ok"])
+        again, _, _ = gh.open_game(self, cfg=g.cfg, directory=d, ft=ft)
+        self.assertEqual(gh.digests(again), gh.digests(g))
+        self.assertEqual({t["team"] for t in again.stakeholder_board()["teams"] if t["declined"]}, {1, 2})
+
+    def test_a_restore_past_a_decline_and_a_meeting_done_clears_both(self):
+        g, ft, d = gh.open_game(self)
+        bid = g.book(1, "cto")["booking"]
+        snap = g.snapshot_now()
+        trust = g.states[2]["seg"]["W"]["trust"]
+        g.mark_done(bid)
+        g.stakeholder_decline(2, 3)
+        self.assertTrue(g.restore(snap)["ok"])
+        self.assertFalse(g.board["bookings"][0]["done"])
+        self.assertEqual(g.board["declined"], {})
+        self.assertEqual(g.states[2]["seg"]["W"]["trust"], trust)
+        self.assertTrue(g.stakeholder_decline(2, 3)["ok"])
+
+    def test_a_non_integer_team_is_a_refusal_not_an_error(self):
+        g, ft, _ = gh.open_game(self)
+        for team in ([1], {"a": 1}, "1", 1.0):
+            self.assertFalse(g.stakeholder_decline(team, 3)["ok"], team)
+
+
+class QuarterTests(unittest.TestCase):
+    def test_booking_quarter_boundaries(self):
+        cfg = helpers.make_cfg()
+        got = [config_quarter(cfg, d) for d in (0, 1, 91, 92, 182, 183, 273, 274, 364, 400)]
+        self.assertEqual(got, [1, 1, 1, 2, 2, 3, 3, 4, 4, 4])
+
+
+def config_quarter(cfg, day):
+    import config
+    return config.booking_quarter(cfg, day)
+
+
 class RecoveryTests(unittest.TestCase):
     def test_a_restart_rebuilds_the_same_board_including_a_meeting_marked_done(self):
         g, ft, d = gh.open_game(self)
@@ -270,6 +316,13 @@ class StakeholderRouteTests(ServerCase):
         self.assertEqual(status, 400)
         _, mine = self.call("GET", "/api/team/%s/bookings" % self.codes[1])
         self.assertTrue(next(r for r in mine["roles"] if r["role"] == "cto")["mine"]["done"])
+
+    def test_unknown_paths_and_bodies_with_a_valid_password(self):
+        self.assertEqual(self.call("GET", "/api/stakeholder/nothing", None, SH)[0], 404)
+        self.assertEqual(self.call("POST", "/api/stakeholder/nothing", {}, SH)[0], 404)
+        self.assertEqual(self.call("POST", "/api/stakeholder/done", {}, SH)[0], 400)
+        self.assertEqual(self.call("POST", "/api/stakeholder/done", b"[1]", SH)[0], 400)
+        self.assertEqual(self.call("POST", "/api/stakeholder/decline", dict(team=[1], ticks=3), SH)[0], 400)
 
     def test_a_bad_booking_body_is_a_400(self):
         status, _ = self.call("POST", "/api/team/%s/bookings" % self.codes[1], dict(role=3))

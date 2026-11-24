@@ -256,11 +256,16 @@ class Game:
                            "admin")
 
     def decline_result(self, team, ticks):
-        """Operator correction path: applies the result, with no once-only guard."""
-        result = self.submit(team, dict(type="decline_result", ticks=ticks), "admin")
-        if result.get("ok"):
-            self.board["declined"][team] = ticks
-        return result
+        """Operator entry of a decline result. Same once-per-team rule as the stakeholder
+        screen; a mistake is corrected with an admin edit of Whale trust and a reason."""
+        with self.lock:
+            if team in self.board["declined"]:
+                return dict(ok=False, error="a result is already entered for this team; "
+                                            "correct Whale trust with an admin edit")
+            result = self.submit(team, dict(type="decline_result", ticks=ticks), "admin")
+            if result.get("ok"):
+                self.board["declined"][team] = ticks
+            return result
 
     # --- stakeholders -----------------------------------------------------
     def _role(self, role):
@@ -305,7 +310,7 @@ class Game:
         cfg = self.cfg
         with self.lock:
             self._check_open()
-            if isinstance(team, bool) or team not in self.states:
+            if isinstance(team, bool) or not isinstance(team, int) or team not in self.states:
                 return dict(ok=False, error="no such team")
             top = max(cfg["DECLINE_TRUST"])
             if isinstance(ticks, bool) or not isinstance(ticks, int) or not 0 <= ticks <= top:

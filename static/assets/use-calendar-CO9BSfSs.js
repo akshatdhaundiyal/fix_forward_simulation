@@ -1,0 +1,1 @@
+import{a as e,g as t,p as n}from"./api-D8lng0mU.js";var r=t(n(),1),i=3e3;function a(){let[t,n]=(0,r.useState)(null);return(0,r.useEffect)(()=>{let t=!1,r,a=()=>e().then(e=>!t&&n(e)).catch(()=>{t||(r=setTimeout(a,i))});return a(),()=>{t=!0,r&&clearTimeout(r)}},[]),t}export{a as t};
