@@ -101,6 +101,12 @@ PLACEHOLDER_LIFT = 0.05
 LIFTS = {c["id"]: PLACEHOLDER_LIFT for c in CARDS
          if c["stage"] not in (None, "contract")}
 
+# ARR gain each card actually reaches with the solved lifts. Filled from the
+# calibration file; a card with no entry uses its target gain. Segment reports
+# show utility from this table, so cards that cannot reach their target are not
+# overstated.
+CALIBRATED_GAIN = {}
+
 # Largest lift the calibrator may assign, by stage. Retention stays below 1 so
 # churn cannot reach zero or go negative.
 LIFT_CAPS = {"retention": 0.95, "default": 3.0}
@@ -109,7 +115,7 @@ CALIBRATION_TOLERANCE = 0.002   # Cr
 
 # --- reports --------------------------------------------------------------
 REPORT_COST = 4
-UTILITY_SCALE = 100        # utility = round(scale x target gain / pitch ARR)
+UTILITY_SCALE = 100        # utility = round(scale x calibrated gain / pitch ARR); target gain if none (CALIBRATED_GAIN)
 
 # --- bespoke contracts ----------------------------------------------------
 B1_CARD = "B1"
@@ -340,6 +346,10 @@ def load(overrides=None, calibrated=True):
                 if cid not in cfg["LIFTS"]:
                     raise ValueError("calibration file names unknown card: %s" % cid)
                 cfg["LIFTS"][cid] = lift
+        if "LIFTS" not in overrides and "CALIBRATED_GAIN" not in overrides:
+            for entry in data.get("cards", []):
+                if entry["id"] in cfg["LIFTS"] and "achieved" in entry:
+                    cfg["CALIBRATED_GAIN"][entry["id"]] = entry["achieved"]
         if "NOISE" not in overrides:
             cfg["NOISE"].update(data.get("noise", {}))
     cfg["CARD_BY_ID"] = {c["id"]: c for c in cfg["CARDS"]}

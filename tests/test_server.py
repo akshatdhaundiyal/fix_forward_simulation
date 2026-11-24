@@ -174,6 +174,31 @@ class StaticTests(ServerCase):
         self.assertEqual((status, payload), (200, b"static file"))
         self.assertEqual(self.call("GET", "/", raw=True)[1], b"<p>hello</p>")
 
+    def test_web_assets_get_web_content_types_whatever_the_registry_says(self):
+        expected = {"team.html": "text/html", "app.js": "text/javascript",
+                    "app.mjs": "text/javascript", "app.css": "text/css",
+                    "data.json": "application/json", "logo.svg": "image/svg+xml",
+                    "inter.woff2": "font/woff2", "app.js.map": "application/json",
+                    "favicon.ico": "image/x-icon"}
+        for name in expected:
+            with open(os.path.join(self.static, name), "w") as f:
+                f.write("x")
+        with mock.patch("server.mimetypes.guess_type", return_value=("text/plain", None)):
+            for name, ctype in expected.items():
+                status, _, resp = self.call("GET", "/" + name, raw=True)
+                self.assertEqual(status, 200, name)
+                self.assertTrue(resp.getheader("Content-Type").startswith(ctype), name)
+
+    def test_unknown_extensions_fall_back_to_the_registry_then_to_octet_stream(self):
+        with open(os.path.join(self.static, "notes.txt"), "w") as f:
+            f.write("x")
+        with open(os.path.join(self.static, "blob.zzzunknown"), "w") as f:
+            f.write("x")
+        self.assertEqual(self.call("GET", "/notes.txt", raw=True)[2].getheader("Content-Type"),
+                         "text/plain")
+        self.assertEqual(self.call("GET", "/blob.zzzunknown", raw=True)[2].getheader("Content-Type"),
+                         "application/octet-stream")
+
     def test_path_traversal_is_refused(self):
         for path in ("/../outside-secret.txt", "/..%2foutside-secret.txt", "/%2e%2e/outside-secret.txt",
                      "/..\\outside-secret.txt", "/a.txt%00", "/C:/Windows/win.ini",

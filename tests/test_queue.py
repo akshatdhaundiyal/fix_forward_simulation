@@ -1,7 +1,13 @@
 import unittest
 
 import helpers
+import config
 import engine
+
+
+def config_loaded(**overrides):
+    """Config with the calibration file applied (helpers.make_cfg pins placeholder lifts)."""
+    return config.load(overrides)
 
 
 def add(cfg, state, card):
@@ -81,6 +87,34 @@ class QueueTests(unittest.TestCase):
         self.assertEqual(rep["utility"]["A3"], round(100 * 1.9 / 2.5))
         self.assertNotIn("B3", rep["utility"])
         self.assertTrue(rep["alerts"])
+
+    def _report_utility(self, cfg, seg, until_quarter_card):
+        state = engine.new_state(cfg, 1, 1)
+        state["day"] = cfg["DAYS_PER_WEEK"] * cfg["WEEKS_PER_QUARTER"] * (until_quarter_card - 1)
+        engine.apply(cfg, state, dict(type="queue_add", report=seg))
+        helpers.run_days(cfg, state, 6)
+        return state["reports"][0]["utility"]
+
+    def test_report_utility_uses_calibrated_gain_for_unreachable_cards(self):
+        cfg = config_loaded(RECORD_SLICES=False, EVENTS_ENABLED=dict(
+            incidents=False, peak_season=False, churn_alerts=False))
+        util = self._report_utility(cfg, "M", 2)
+        calibrated = cfg["CALIBRATED_GAIN"]["B3"]
+        self.assertLess(calibrated, cfg["CARD_BY_ID"]["B3"]["gain"])
+        self.assertEqual(util["B3"], round(100 * calibrated / cfg["CARD_BY_ID"]["B3"]["pitch"]))
+        self.assertLess(util["B3"], round(100 * 2.4 / 3.0))
+
+    def test_report_utility_matches_target_for_solved_cards(self):
+        cfg = config_loaded(RECORD_SLICES=False, EVENTS_ENABLED=dict(
+            incidents=False, peak_season=False, churn_alerts=False))
+        util = self._report_utility(cfg, "M", 2)
+        self.assertEqual(util["A3"], round(100 * 1.9 / 2.5))
+
+    def test_report_utility_falls_back_to_target_without_calibration(self):
+        cfg = config.load(dict(RECORD_SLICES=False, EVENTS_ENABLED=dict(
+            incidents=False, peak_season=False, churn_alerts=False)), calibrated=False)
+        util = self._report_utility(cfg, "M", 2)
+        self.assertEqual(util["B3"], round(100 * 2.4 / 3.0))
 
     def test_standing_card_once_per_quarter(self):
         self.assertTrue(add(self.cfg, self.state, "P1")["ok"])

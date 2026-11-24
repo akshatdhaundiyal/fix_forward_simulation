@@ -148,3 +148,21 @@ Append one row per decision made during the build that the spec did not make.
 | 2026-11-23 | Team views are cached per team and version, and an ETag includes a per-boot token. The ETag applies to the view route only; the clock is a separate cheap route and is also embedded in a 200 response | A stale ETag from before a restart must not produce a false 304, and a countdown must never be served from cache | new: `VIEW_DEFAULT_SERIES_DAYS` 28 | Not applicable |
 | 2026-11-23 | Default of 16 teams numbered 1 to N, six-character codes from an alphabet without 0, O, 1 and I, saved in `teams.json`. Admin and stakeholder passwords come from flags or environment variables and are generated and printed once if absent | A restart must not lock teams out, and codes must be easy to read aloud | new: `NUM_TEAMS`, `TEAM_CODE_ALPHABET` | Not applicable |
 | 2026-11-23 | The stakeholder password is accepted at startup but opens no routes yet | Stakeholder endpoints are stage 6 | none | Not applicable |
+| 2026-11-23 | Segment report utility comes from each card's calibrated gain (`CALIBRATED_GAIN`, read from the `achieved` values in `calibration/lifts.json`), falling back to the target gain. Runs that pin their own lifts keep target gains. A running or saved game must restart with `--new-game` | B2, B3 and C4 cannot reach their targets, so reports overstated them (utility B2 60 → 37, B3 80 → 58, C4 85 → 67). Organiser approved this change | new: `CALIBRATED_GAIN`; no spec number changed | Yes, 24-team league below. The scripted bots read report utility, so their play changed. Bot rules were not edited |
+| 2026-11-23 | The team console is built in `web/` with Vite, React, TypeScript, Tailwind v4 and shadcn/ui and compiled into `static/`, which is committed. This overrides hard constraints 1 and 2 in `CLAUDE.md` for the front end: Node is a build-time tool only, and the server and its laptops still need only Python. Fonts (Inter, JetBrains Mono, Playfair Display) are bundled from Fontsource packages; nothing loads from a CDN. The organiser directed this | The organiser wants a SaaS-quality light interface, which plain HTML and hand-drawn charts would not deliver in the time. Committing the build keeps the event-day promise that the spare laptop starts with `python3 server.py` and no internet | none | Not applicable |
+| 2026-11-23 | The server maps web asset extensions to content types from a table before asking `mimetypes` | On Windows the registry can map `.js` to `text/plain`, so browsers refuse module scripts | none | Not applicable |
+
+League before and after the utility change (mean NEV over 3 copies per strategy):
+
+| Strategy | Before | After |
+| :--- | ---: | ---: |
+| late-sprinter | 169.0 | 145.4 |
+| no-reports | 148.3 | 148.3 |
+| measured-risk | 147.9 | 129.7 |
+| whale-chaser | 137.1 | 141.3 |
+| corner-cutter | 121.2 | 111.9 |
+| maximum-caution | 109.2 | 118.7 |
+| fixed-plan | 43.9 | 43.9 |
+| do-nothing | 43.9 | 43.9 |
+
+Criteria after: corner-cutter leads ARR at week 26 and loses by week 52 now **passes** (it led 27.94 against 27.92). Measured-risk still does not win; no-reports does (148.3 against 129.7), because measured-risk now skips low-utility cards and builds less. Fixed plan finishes in the bottom half (pass). No single-tactic strategy within 5% of the winner still fails, as a consequence of the first. Nothing was tuned to produce this. It shifts the open balance question from "late sprinter wins" to "reports are not worth their cost", which the sweep in the balance-resolution plan should address.
