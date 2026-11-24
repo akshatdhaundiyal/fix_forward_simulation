@@ -341,6 +341,15 @@ class Game:
             self._cache[key] = (version, etag, body)
             return etag, body
 
+    def calendar(self):
+        """The game's fixed calendar, from config. Holds nothing hidden."""
+        cfg = self.cfg
+        return dict(
+            weeks=cfg["WEEKS"], weeks_per_quarter=cfg["WEEKS_PER_QUARTER"],
+            checkpoint_weeks=list(cfg["CHECKPOINT_WEEKS"]),
+            surge=dict(start=cfg["PEAK_START_WEEK"], end=cfg["PEAK_END_WEEK"]),
+            contract_window=dict(first=cfg["B1_APPLY_FIRST_WEEK"], last=cfg["B1_APPLY_LAST_WEEK"]))
+
     def projector(self):
         with self.lock:
             rows = []

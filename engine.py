@@ -697,6 +697,9 @@ def team_view(cfg, state, series_days=None, include_slices=False):
                    capacity_bu_week=_weekly_capacity(cfg, state),
                    open_incidents=len(incidents)),
         quality=state["quality"], queue=queue, cards=cards, incidents=incidents,
+        # True while a peak-season outage has seized build capacity. The amount
+        # owed would reveal hidden debt, so only the fact is shown.
+        outage=state["rework_owed"] > cfg["FLOAT_EPS"],
         reports=[dict(seg=r["seg"], day=r["day"], utility=dict(r["utility"]),
                       alerts=list(r["alerts"])) for r in state["reports"]],
         b1=dict(window_open=cfg["B1_APPLY_FIRST_WEEK"] <= week <= cfg["B1_APPLY_LAST_WEEK"],
