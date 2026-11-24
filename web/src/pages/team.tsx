@@ -6,17 +6,21 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { Button } from "@/components/ui/button"
 import { ActionsProvider } from "@/components/actions"
 import { Brand } from "@/components/brand"
+import { CalendarStrip } from "@/components/calendar"
 import { CardCatalog } from "@/components/card-catalog"
 import { ClockBar } from "@/components/clock-bar"
+import { ContractPanel } from "@/components/contract-panel"
 import { ConnectionBanner } from "@/components/connection-banner"
 import { Explorer } from "@/components/funnel/explorer"
 import { IncidentAlert, Incidents } from "@/components/incidents"
 import { Operations } from "@/components/operations"
 import { OverviewTiles } from "@/components/overview-tiles"
+import { OutageNotice } from "@/components/outage-notice"
 import { QualityControl } from "@/components/quality-control"
 import { Queue } from "@/components/queue"
 import { Reports } from "@/components/reports"
 import { codeFromHash, forgetCode } from "@/lib/team-code"
+import { useCalendar } from "@/lib/use-calendar"
 import { useGame } from "@/lib/usegame"
 import { cn } from "@/lib/utils"
 
@@ -63,6 +67,7 @@ function Loading() {
 
 function Console({ code }: { code: string }) {
   const { state, feed } = useGame(code)
+  const calendar = useCalendar()
   const [tab, setTab] = useState<Tab>("overview")
   const { clock, view, status } = state
 
@@ -89,6 +94,7 @@ function Console({ code }: { code: string }) {
 
           <ClockBar clock={clock} quarter={view.quarter} />
           <ConnectionBanner status={status} />
+          <OutageNotice outage={view.outage} />
           <IncidentAlert incidents={view.incidents} onOpen={() => setTab("incidents")} />
 
           <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="gap-6">
@@ -111,10 +117,12 @@ function Console({ code }: { code: string }) {
 
             <TabsContent value="overview" className="flex flex-col gap-6">
               <OverviewTiles view={view} onOpenIncidents={() => setTab("incidents")} />
+              {calendar && <CalendarStrip calendar={calendar} week={clock.week} />}
             </TabsContent>
 
             <TabsContent value="roadmap" className="flex flex-col gap-6">
               <QualityControl mode={view.quality} />
+              <ContractPanel b1={view.b1} week={clock.week} calendar={calendar} />
               <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
                 <CardCatalog view={view} />
                 <div className="xl:sticky xl:top-6">

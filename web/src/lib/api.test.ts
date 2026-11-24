@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { createApi } from "./api"
+import { createApi, fetchCalendar } from "./api"
 
 type Call = { url: string; init?: RequestInit }
 
@@ -95,5 +95,19 @@ describe("createApi.action", () => {
 
     const junk = stub(() => new Response("not json", { status: 500 }))
     expect(await junk.api.action("ABC123", { type: "apply_b1" })).toMatchObject({ ok: false })
+  })
+})
+
+describe("fetchCalendar", () => {
+  it("fetches the calendar from a relative URL and rejects on failure", async () => {
+    const { calls } = stub(() => json({ weeks: 52 }))
+    const fetchFn = (async (url: string, init?: RequestInit) => {
+      calls.push({ url, init })
+      return json({ weeks: 52 })
+    }) as unknown as typeof fetch
+    expect(await fetchCalendar(fetchFn)).toEqual({ weeks: 52 })
+    expect(calls[0].url).toBe("api/calendar")
+    const bad = (async () => new Response(null, { status: 500 })) as unknown as typeof fetch
+    await expect(fetchCalendar(bad)).rejects.toThrow()
   })
 })
