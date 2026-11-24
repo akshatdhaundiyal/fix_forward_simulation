@@ -1,20 +1,25 @@
 import { useEffect, useRef, useState } from "react"
-import { createApi } from "@/lib/api"
-import type { TeamView } from "@/lib/types"
+import { createApi } from "./api"
+import type { TeamView } from "./types"
 
-// The funnel explorer needs slice data, which makes the view large (about 1.5 MB
-// for a whole game). It is fetched only while the explorer is open, over a
-// quarter of days, and refreshed at a multiple of the normal poll interval.
-export const EXPLORER_DAYS = 91
+// Screens that chart a long window (the funnel explorer, operations) fetch a
+// larger view than the console's ordinary 28-day poll. A window view is fetched
+// only while its screen is open and is refreshed at a multiple of the normal
+// poll interval; slice data makes it much larger (about 1.5 MB for a whole game).
 const REFRESH_MULTIPLE = 5
 
-export type HeavyState =
+export interface WindowOptions {
+  days: number
+  slices?: boolean
+}
+
+export type WindowState =
   | { status: "loading" }
   | { status: "ready"; view: TeamView }
   | { status: "error"; view?: TeamView }
 
-export function useHeavyView(code: string, pollSeconds: number): HeavyState {
-  const [state, setState] = useState<HeavyState>({ status: "loading" })
+export function useWindowView(code: string, pollSeconds: number, { days, slices }: WindowOptions): WindowState {
+  const [state, setState] = useState<WindowState>({ status: "loading" })
   const etag = useRef<string | null>(null)
   const latest = useRef<TeamView | undefined>(undefined)
 
@@ -26,7 +31,7 @@ export function useHeavyView(code: string, pollSeconds: number): HeavyState {
     const load = async () => {
       if (document.visibilityState === "hidden") return
       try {
-        const result = await api.view(code, { days: EXPLORER_DAYS, slices: true, etag: etag.current })
+        const result = await api.view(code, { days, slices, etag: etag.current })
         if (stopped) return
         if (result.kind === "ok") {
           etag.current = result.etag
@@ -60,7 +65,7 @@ export function useHeavyView(code: string, pollSeconds: number): HeavyState {
       if (timer) clearTimeout(timer)
       document.removeEventListener("visibilitychange", onVisible)
     }
-  }, [code, pollSeconds])
+  }, [code, pollSeconds, days, slices])
 
   return state
 }

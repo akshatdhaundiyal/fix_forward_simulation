@@ -11,6 +11,7 @@ import { ClockBar } from "@/components/clock-bar"
 import { ConnectionBanner } from "@/components/connection-banner"
 import { Explorer } from "@/components/funnel/explorer"
 import { IncidentAlert, Incidents } from "@/components/incidents"
+import { Operations } from "@/components/operations"
 import { OverviewTiles } from "@/components/overview-tiles"
 import { QualityControl } from "@/components/quality-control"
 import { Queue } from "@/components/queue"
@@ -19,13 +20,14 @@ import { codeFromHash, forgetCode } from "@/lib/team-code"
 import { useGame } from "@/lib/usegame"
 import { cn } from "@/lib/utils"
 
-type Tab = "overview" | "roadmap" | "reports" | "funnel" | "incidents"
+type Tab = "overview" | "roadmap" | "reports" | "funnel" | "operations" | "incidents"
 
 const TABS: { value: Tab; label: string }[] = [
   { value: "overview", label: "Overview" },
   { value: "roadmap", label: "Roadmap" },
   { value: "reports", label: "Reports" },
   { value: "funnel", label: "Funnel" },
+  { value: "operations", label: "Operations" },
   { value: "incidents", label: "Incidents" },
 ]
 
@@ -127,6 +129,10 @@ function Console({ code }: { code: string }) {
 
             <TabsContent value="funnel">
               <Explorer code={code} pollSeconds={clock.poll_seconds} light={view} />
+            </TabsContent>
+
+            <TabsContent value="operations">
+              <Operations code={code} pollSeconds={clock.poll_seconds} light={view} />
             </TabsContent>
 
             <TabsContent value="incidents">
