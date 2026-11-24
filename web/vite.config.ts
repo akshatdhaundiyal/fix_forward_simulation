@@ -16,6 +16,8 @@ export default defineConfig({
       input: {
         index: path.resolve(import.meta.dirname, "index.html"),
         team: path.resolve(import.meta.dirname, "team.html"),
+        projector: path.resolve(import.meta.dirname, "projector.html"),
+        admin: path.resolve(import.meta.dirname, "admin.html"),
       },
     },
   },
