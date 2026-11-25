@@ -214,6 +214,11 @@ WHALE_LEAD_CARD = "B2"                  # the data isolation card the Whale lead
 CTO_BAND_LIMITS = (15.0, 30.0)
 
 
+# Spec section 14: the hidden target gains the MC reveals at the debrief.
+DEBRIEF_CARDS = ["A1", "B4", "C3"]       # AI Copilot, Partner marketplace API, AI meeting summaries
+DEBRIEF_LEADER_WEEK = 26                 # the "week-26 leader" is judged on ARR at the end of this week
+
+
 def booking_quarter(cfg, day):
     """Quarter a booking made on this day counts toward.
 
@@ -410,7 +415,7 @@ SERVER_ONLY_KEYS = [
     "ACTION_SPECS", "CALLER_ACTIONS", "CALIBRATION_FILE", "RECORD_HISTORY", "RECORD_SLICES",
     "TELEMETRY_WINDOW_DAYS", "CALIBRATION_TOLERANCE",
     "STAKEHOLDER_ROLES", "BOOKINGS_PER_ROLE_PER_QUARTER", "WHALE_LEAD_CARD", "CTO_BAND_LIMITS",
-    "SCRIPT_CARDS", "REPLICATE_INTERVAL_SECONDS", "REPLICATE_CHUNK_BYTES", "REPLICATE_CHECK_BYTES",
+    "SCRIPT_CARDS", "DEBRIEF_CARDS", "DEBRIEF_LEADER_WEEK", "REPLICATE_INTERVAL_SECONDS", "REPLICATE_CHUNK_BYTES", "REPLICATE_CHECK_BYTES",
 ]
 
 # --- recording ------------------------------------------------------------

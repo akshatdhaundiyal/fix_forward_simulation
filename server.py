@@ -133,6 +133,11 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, app.game.calendar())
         if parts == ["projector"] and method == "GET":
             return self._json(200, app.game.projector())
+        if parts == ["debrief"] and method == "GET":
+            data = app.game.debrief()
+            if data is None:
+                return self._error(403, "the debrief opens at the final reveal")
+            return self._json(200, data)
         if parts[:1] == ["team"] and len(parts) == 3:
             return self._team(method, parts[1], parts[2], query)
         if parts[:1] == ["stakeholder"] and len(parts) == 2:

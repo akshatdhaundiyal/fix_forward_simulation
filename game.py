@@ -132,6 +132,7 @@ class Game:
         self.last_snapshot_wall = None
         self.revealed = False
         self.board = dict(bookings=[], declined={})
+        self._debrief_cache = None
         self.clock = Clock(cfg)
         self.states, self.versions, self._cache = {}, {}, {}
         self.log = store.EventLog(self.log_path, cfg["LOG_FSYNC"])
@@ -368,8 +369,7 @@ class Game:
                         roles=roles)
 
     def _cto_band(self, uod):
-        green, amber = self.cfg["CTO_BAND_LIMITS"]
-        return "green" if uod <= green else "amber" if uod <= amber else "red"
+        return engine.cto_band(self.cfg, uod)
 
     def stakeholder_board(self):
         """Everything the stakeholder screen shows. Built field by field: a band, three
@@ -528,6 +528,46 @@ class Game:
             for i, r in enumerate(rows, 1):
                 r["rank"] = i
             return dict(clock=self.clock.status(self.now()), revealed=self.revealed, rows=rows)
+
+    def debrief(self):
+        """The spec's debrief data, or None until the final reveal.
+
+        Three teams are picked on the server so no other team's hidden series is sent: the
+        leader on ARR at the end of week 26, the winner on valuation, and the team with the
+        biggest fall from its peak ARR to its final ARR. One team may fill several roles.
+        """
+        cfg = self.cfg
+        with self.lock:
+            if not self.revealed:
+                return None
+            if self._debrief_cache and self._debrief_cache[0] == self.log.seq:
+                return self._debrief_cache[1]       # state only changes with a new log line
+            series = {n: engine.debrief_series(cfg, st) for n, st in self.states.items()}
+            scores = {n: engine.score(cfg, st) for n, st in self.states.items()}
+            by_team = lambda best, pool: min(pool, key=lambda n: (-best(n), n)) if pool else None
+            week26 = cfg["DEBRIEF_LEADER_WEEK"]
+            at26 = {n: next((p["arr"] for p in reversed(s) if p["week"] <= week26), None)
+                    for n, s in series.items()}
+            leader = by_team(lambda n: at26[n], [n for n in series if at26[n] is not None])
+            winner = by_team(lambda n: scores[n]["nev"], list(scores))
+            fall = {n: max(p["arr"] for p in s) - s[-1]["arr"] for n, s in series.items() if s}
+            collapse = by_team(lambda n: fall[n], list(fall))
+            roles = {}
+            for role, team in (("week26_leader", leader), ("winner", winner), ("biggest_collapse", collapse)):
+                if team is not None:
+                    roles.setdefault(team, []).append(role)
+            teams = [dict(team=n, name=self._name(n), roles=roles[n], series=series[n],
+                          final=dict(arr=scores[n]["arr"], nev=scores[n]["nev"], debt=scores[n]["uod"]))
+                     for n in sorted(roles)]
+            gains = []
+            for cid in cfg["DEBRIEF_CARDS"]:
+                card = cfg["CARD_BY_ID"][cid]
+                gains.append(dict(card=cid, name=card["name"], pitch=card["pitch"],
+                                  target_gain=cfg["CALIBRATED_GAIN"].get(cid, card["gain"])))
+            result = dict(weeks=cfg["WEEKS"], band_limits=list(cfg["CTO_BAND_LIMITS"]), teams=teams,
+                          gains=gains)
+            self._debrief_cache = (self.log.seq, result)
+            return result
 
     def _name(self, n):
         for t in self.registry["teams"]:

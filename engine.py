@@ -607,6 +607,24 @@ def score(cfg, state):
                 uod=state["uod"], penalty=state["penalty"], nev=nev)
 
 
+def cto_band(cfg, uod):
+    """The CTO's traffic light for a hidden-debt level: green, amber or red."""
+    green, amber = cfg["CTO_BAND_LIMITS"]
+    return "green" if uod <= green else "amber" if uod <= amber else "red"
+
+
+def weekly_records(cfg, state):
+    """The last daily record of each week, as {week: record}. Empty weeks are absent."""
+    out = {}
+    for rec in state["history"]:
+        out[week_of(cfg, rec["day"])] = rec
+    return out
+
+
+def record_arr(rec):
+    return sum(e["arr"] for e in rec["seg"].values())
+
+
 # --- display noise and the team view --------------------------------------
 def noise(seed, team_no, series, day):
     """Deterministic value in [-1, 1] for one (seed, team, series, day)."""
@@ -634,6 +652,20 @@ def _telemetry_point(cfg, seed, team_no, rec):
             t *= 1 + cfg["TICKETS_INCIDENT_BUMP"]
         tickets[s] = t * (1 + nz["tickets"] * noise(seed, team_no, "tickets" + s, day))
     return dict(day=day, error_rate=err, p99_ms=p99, tickets=tickets)
+
+
+def debrief_series(cfg, state):
+    """One point a week for the debrief: hidden debt, the error rate the team saw, the CTO band, ARR.
+
+    Only for use after the final reveal. The error rate is the same noisy figure the
+    team's own dashboard showed.
+    """
+    series = []
+    for week, rec in sorted(weekly_records(cfg, state).items()):
+        point = _telemetry_point(cfg, state["seed"], state["team"], rec)
+        series.append(dict(week=week, debt=rec["uod"], error_rate=point["error_rate"],
+                           band=cto_band(cfg, rec["uod"]), arr=record_arr(rec)))
+    return series
 
 
 def team_view(cfg, state, series_days=None, include_slices=False):
