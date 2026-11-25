@@ -124,6 +124,8 @@ class Handler(BaseHTTPRequestHandler):
         app = self.app
         if parts == ["clock"] and method == "GET":
             return self._json(200, app.game.clock_status())
+        if parts == ["calendar"] and method == "GET":
+            return self._json(200, app.game.calendar())
         if parts == ["projector"] and method == "GET":
             return self._json(200, app.game.projector())
         if parts[:1] == ["team"] and len(parts) == 3:

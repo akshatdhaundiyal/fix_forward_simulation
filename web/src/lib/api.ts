@@ -1,4 +1,4 @@
-import type { Clock, TeamAction, TeamView } from "./types"
+import type { Calendar, Clock, TeamAction, TeamView } from "./types"
 
 // Relative URLs only: the console works under any host or path.
 
@@ -82,4 +82,11 @@ export function createApi(fetchFn: Fetch = (...args) => fetch(...args)): Api {
       return { ok: false, error: body.error ?? "The server did not accept that action." }
     },
   }
+}
+
+// The calendar never changes during a game, so it is fetched once and kept outside Api.
+export async function fetchCalendar(fetchFn: Fetch = (...args) => fetch(...args)): Promise<Calendar> {
+  const resp = await fetchFn("api/calendar", { cache: "no-store", signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
+  if (!resp.ok) throw new Error(`calendar ${resp.status}`)
+  return (await resp.json()) as Calendar
 }

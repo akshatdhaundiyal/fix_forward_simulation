@@ -168,6 +168,28 @@ class PublicRouteTests(ServerCase):
         self.assertEqual(self.call("POST", "/api/clock", {})[0], 404)
 
 
+class CalendarRouteTests(ServerCase):
+    def test_calendar_is_public_and_lists_checkpoints_surge_and_contract_weeks(self):
+        status, cal = self.call("GET", "/api/calendar")
+        cfg = self.g.cfg
+        self.assertEqual(status, 200)
+        self.assertEqual(cal["surge"], dict(start=cfg["PEAK_START_WEEK"], end=cfg["PEAK_END_WEEK"]))
+        self.assertEqual(cal["contract_window"],
+                         dict(first=cfg["B1_APPLY_FIRST_WEEK"], last=cfg["B1_APPLY_LAST_WEEK"]))
+        self.assertEqual(cal["weeks_per_quarter"], cfg["WEEKS_PER_QUARTER"])
+        self.assertEqual(cal["checkpoint_weeks"], [13, 26, 39])
+        self.assertEqual(cal["weeks"], cfg["WEEKS"])
+        self.assertEqual(cal["days_per_week"], cfg["DAYS_PER_WEEK"])
+
+    def test_calendar_follows_config(self):
+        self.g.cfg["PEAK_START_WEEK"] = 20
+        self.assertEqual(self.call("GET", "/api/calendar")[1]["surge"]["start"], 20)
+
+    def test_calendar_carries_no_hidden_field_name(self):
+        _, cal = self.call("GET", "/api/calendar")
+        self.assertFalse(helpers.all_keys(cal) & set(self.g.cfg["HIDDEN_FIELD_NAMES"]))
+
+
 class StaticTests(ServerCase):
     def test_files_are_served_and_root_serves_the_index(self):
         status, payload, resp = self.call("GET", "/a.txt", raw=True)
@@ -230,6 +252,10 @@ class AdminRouteTests(ServerCase):
         self.assertEqual(status, 200)
         self.assertEqual({t["team"]: t["code"] for t in data["teams"]}, self.codes)
         self.assertIsNone(data["degraded"])
+
+    def test_status_offers_the_configured_speed_choices(self):
+        data = self.admin("GET", "/api/admin/status")[1]
+        self.assertEqual(data["speed_choices"], self.g.cfg["SPEED_CHOICES"])
 
     def test_clock_controls_over_http_change_the_clock_and_are_logged(self):
         before = self.g.log.seq

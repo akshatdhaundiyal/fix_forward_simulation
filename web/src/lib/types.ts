@@ -103,6 +103,15 @@ export interface TelemetryPoint {
   tickets: Record<SegmentId, number>
 }
 
+export interface Calendar {
+  weeks: number
+  weeks_per_quarter: number
+  days_per_week: number
+  checkpoint_weeks: number[]
+  surge: { start: number; end: number }
+  contract_window: { first: number; last: number }
+}
+
 export interface TeamView {
   team: number
   day: number
@@ -115,6 +124,7 @@ export interface TeamView {
     open_incidents: number
   }
   quality: QualityMode
+  outage: boolean
   queue: QueueItem[]
   cards: Card[]
   incidents: Incident[]
