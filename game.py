@@ -561,7 +561,8 @@ class Game:
                 card = cfg["CARD_BY_ID"][cid]
                 gains.append(dict(card=cid, name=card["name"], pitch=card["pitch"],
                                   target_gain=cfg["CALIBRATED_GAIN"].get(cid, card["gain"])))
-            return dict(weeks=cfg["WEEKS"], teams=teams, gains=gains)
+            return dict(weeks=cfg["WEEKS"], band_limits=list(cfg["CTO_BAND_LIMITS"]), teams=teams,
+                        gains=gains)
 
     def _name(self, n):
         for t in self.registry["teams"]:

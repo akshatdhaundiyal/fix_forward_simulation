@@ -31,6 +31,10 @@ npm --prefix web run build
 
 The build writes `static/`, which the server serves and which **is committed**. Rebuild and commit `static/` together with any change under `web/`, so every laptop that clones the repo runs the same console. For live editing, run `npm --prefix web run dev`; it proxies `/api` to a server on port 8000.
 
+## Debrief on the projector
+
+After the operator triggers the final reveal on the admin screen, the projector shows four views, switched with the number keys on the projector laptop: 1 ranking by valuation, 2 hidden-debt curves for the week-26 leader, the final winner and the biggest collapse, 3 each of those teams' error rate with the CTO's light week by week, 4 the hidden target gains of AI Copilot, Partner marketplace API and AI meeting summaries. Before the reveal none of this is available.
+
 ## When something breaks (operator runbook)
 
 Never add `--new-game` while recovering: it moves the saved game aside and starts a new one. Every command below keeps the game. The server always comes back **paused**; resume it from the admin screen.

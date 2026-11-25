@@ -141,7 +141,8 @@ class DebriefRouteTests(ServerCase):
         self.g.reveal()
         status, data = self.call("GET", "/api/debrief")
         self.assertEqual(status, 200)
-        self.assertEqual(set(data), {"weeks", "teams", "gains"})
+        self.assertEqual(set(data), {"weeks", "band_limits", "teams", "gains"})
+        self.assertEqual(data["band_limits"], list(self.g.cfg["CTO_BAND_LIMITS"]))
 
     def test_hidden_debt_stays_off_every_other_route_before_the_reveal(self):
         hidden = set(self.g.cfg["HIDDEN_FIELD_NAMES"])
