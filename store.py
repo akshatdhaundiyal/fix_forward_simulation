@@ -61,6 +61,11 @@ class EventLog:
         self._f = None
         self._good = 0
 
+    @property
+    def size(self):
+        """Bytes of complete lines written so far."""
+        return self._good
+
     def open(self):
         """Repair a torn tail, then open for append. Returns the events already there."""
         events, good = read_events(self.path)
@@ -162,6 +167,18 @@ class SnapshotStore:
                     os.remove(os.path.join(self.dir, e["file"]))
                 except OSError:
                     pass
+
+    def latest(self):
+        """(id, text) of the newest snapshot, or None. The text is the file as written."""
+        entries = self._entries()
+        if not entries:
+            return None
+        newest = entries[-1]
+        try:
+            with open(os.path.join(self.dir, newest["file"]), "r", encoding="utf-8") as f:
+                return newest["id"], f.read()
+        except OSError:
+            return None
 
     def list(self):
         """Snapshots with their digest and clock fields, oldest first."""

@@ -142,7 +142,7 @@ class Handler(BaseHTTPRequestHandler):
         if parts[:1] == ["admin"] and len(parts) == 2:
             if not self._is_admin():
                 return self._error(401, "unauthorized")
-            return self._admin(method, parts[1])
+            return self._admin(method, parts[1], query)
         return self._error(404, "not found")
 
     # --- team routes ------------------------------------------------------
@@ -198,13 +198,22 @@ class Handler(BaseHTTPRequestHandler):
         return self._json(200 if result.get("ok") else 400, result)
 
     # --- admin routes -----------------------------------------------------
-    def _admin(self, method, what):
+    def _admin(self, method, what, query=None):
         game = self.app.game
         if method == "GET":
             if what == "status":
                 return self._json(200, game.status())
             if what == "snapshots":
                 return self._json(200, dict(snapshots=game.list_snapshots()))
+            if what == "log":
+                return self._log_chunk(query or {})
+            if what == "registry":
+                return self._send(200, game.registry_text().encode())
+            if what == "snapshot-latest":
+                newest = game.latest_snapshot()
+                if newest is None:
+                    return self._error(404, "no snapshot yet")
+                return self._send(200, newest[1].encode(), extra={"X-Snapshot-Id": newest[0]})
             return self._error(404, "not found")
         data = self._body()
         if data is None:
@@ -232,6 +241,17 @@ class Handler(BaseHTTPRequestHandler):
         else:
             return self._error(404, "not found")
         return self._json(200 if result.get("ok") else 400, result)
+
+    def _log_chunk(self, query):
+        try:
+            offset = int(query.get("offset", ["0"])[0])
+        except ValueError:
+            return self._error(400, "bad request")
+        chunk, error = self.app.game.log_chunk(offset, query.get("check", [None])[0])
+        if chunk is None:
+            return self._error(409, error)
+        return self._send(200, chunk["data"], "application/octet-stream",
+                          extra={"X-Log-Total": str(chunk["total"]), "X-Boot": chunk["boot"]})
 
     # --- static -----------------------------------------------------------
     def _static(self, raw_path):

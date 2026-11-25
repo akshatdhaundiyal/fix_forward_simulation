@@ -545,6 +545,39 @@ class Game:
                 teams=[dict(team=t["team"], name=t["name"], code=t["code"])
                        for t in self.registry["teams"]])
 
+    # --- spare laptop -----------------------------------------------------
+    def log_chunk(self, offset, check):
+        """Complete log lines from a byte offset, for a follower. Returns (chunk, error).
+
+        `check` is the sha256 of the last bytes the follower already holds before
+        `offset`. A mismatch means its copy is not a prefix of this log (the
+        primary was restarted from a snapshot or began a new game), and nothing
+        is returned, so the follower can never extend a copy of a different game.
+        """
+        cfg = self.cfg
+        with self.lock:
+            total = self.log.size
+            if offset < 0 or offset > total:
+                return None, "the follower's copy is longer than the log"
+            with open(self.log_path, "rb") as f:
+                if offset:
+                    start = max(0, offset - cfg["REPLICATE_CHECK_BYTES"])
+                    f.seek(start)
+                    held = f.read(offset - start)
+                    if check != hashlib.sha256(held).hexdigest():
+                        return None, "the follower's copy does not match this log"
+                f.seek(offset)
+                data = f.read(min(total - offset, cfg["REPLICATE_CHUNK_BYTES"]))
+            if offset + len(data) < total:
+                data = data[:data.rfind(b"\n") + 1]
+            return dict(data=data, total=total, boot=self.boot), None
+
+    def registry_text(self):
+        return json.dumps(self.registry, indent=1)
+
+    def latest_snapshot(self):
+        return self.snapshots.latest()
+
     # --- snapshots --------------------------------------------------------
     def snapshot_now(self):
         """Write a snapshot of every team without history. Never raises."""
