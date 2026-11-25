@@ -52,12 +52,14 @@ class Failed(Exception):
 class ServerProc:
     """The real server in a child process, with its console output parsed."""
 
-    def __init__(self, state_dir, teams, extra=(), new_game=False):
+    def __init__(self, state_dir, teams, extra=(), new_game=False, seconds_per_day=SECONDS_PER_DAY,
+                 checkpoint_pause=1):
         env = dict(os.environ, FF_ADMIN_PASSWORD=ADMIN, FF_STAKEHOLDER_PASSWORD="drill",
                    PYTHONUNBUFFERED="1")
         cmd = [sys.executable, os.path.join(ROOT, "server.py"), "--host", "127.0.0.1", "--port", "0",
                "--state-dir", state_dir, "--teams", str(teams),
-               "--seconds-per-day", str(SECONDS_PER_DAY), "--checkpoint-pause-seconds", "1"]
+               "--seconds-per-day", str(seconds_per_day),
+               "--checkpoint-pause-seconds", str(checkpoint_pause)]
         cmd += list(extra)
         if new_game:
             cmd.append("--new-game")
