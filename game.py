@@ -32,6 +32,22 @@ class StartupRefused(GameError):
 
 
 # --- helpers --------------------------------------------------------------
+def _read_baseline(event, fresh_states):
+    """Team states, speed, revealed and board carried by a baseline log line.
+
+    A baseline starts a game from a snapshot when the log it came from is gone.
+    History is not in a snapshot and is derived, so it starts empty.
+    """
+    teams = {int(n): dict(st, history=[]) for n, st in event["teams"].items()}
+    if sorted(teams) != sorted(fresh_states):
+        raise StartupRefused("the baseline's team list does not match the game")
+    if _all_digest(teams) != event["digest"]:
+        raise StartupRefused("the baseline does not match its own digest")
+    board = event.get("board") or {}
+    declined = {int(n): t for n, t in (board.get("declined") or {}).items()}
+    return (teams, event["speed"], event["revealed"],
+            dict(bookings=list(board.get("bookings") or []), declined=declined))
+
 def config_digest(cfg):
     """Digest of every setting that is part of the game rather than the server."""
     skip = set(cfg["SERVER_ONLY_KEYS"]) | {"CARD_BY_ID"}
@@ -152,9 +168,13 @@ class Game:
         states = {n: engine.new_state(cfg, n, init["seed"]) for n in init["teams"]}
         speed, revealed = 1.0, False
         board = dict(bookings=[], declined={})
-        for e in effective[1:]:
+        for position, e in enumerate(effective[1:], 1):
             kind = e["kind"]
-            if kind == "action":
+            if kind == "baseline":
+                if position != 1:
+                    raise StartupRefused("a baseline at line %d is not the second line" % e["seq"])
+                states, speed, revealed, board = _read_baseline(e, states)
+            elif kind == "action":
                 st = states[e["team"]]
                 if st["day"] != e["day"]:
                     raise StartupRefused("action at line %d is out of order" % e["seq"])
@@ -578,3 +598,46 @@ class Game:
     def close(self):
         with self.lock:
             self.log.close()
+
+
+def start_from_snapshot(cfg, snapshot_path, state_dir, registry_path=None):
+    """Create a state directory whose log is `init` plus a `baseline` from one snapshot.
+
+    For when the log is gone. The team registry (codes and names) is not in a
+    snapshot, so it is copied from beside the snapshot or from registry_path.
+    Nothing is written until every check has passed. Returns the day started at.
+    """
+    try:
+        with open(snapshot_path, "r", encoding="utf-8") as f:
+            snap = json.load(f)
+    except (OSError, ValueError) as exc:
+        raise StartupRefused("cannot read the snapshot: %s" % exc)
+    registry_path = registry_path or os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(snapshot_path))), cfg["REGISTRY_FILE"])
+    try:
+        with open(registry_path, "r", encoding="utf-8") as f:
+            registry = json.load(f)
+    except (OSError, ValueError) as exc:
+        raise StartupRefused("the team registry %s is needed and cannot be read: %s"
+                             % (registry_path, exc))
+    teams = sorted(t["team"] for t in registry["teams"])
+    fresh = {n: engine.new_state(cfg, n, cfg["GAME_SEED"]) for n in teams}
+    event = dict(kind="baseline", day=snap["day"], speed=snap["speed"], revealed=snap["revealed"],
+                 digest=snap["digest"], board=snap.get("board") or {}, teams=snap["teams"])
+    _read_baseline(event, fresh)                       # raises StartupRefused on any mismatch
+    log_path = os.path.join(state_dir, cfg["LOG_FILE"])
+    if os.path.exists(log_path) and os.path.getsize(log_path):
+        raise StartupRefused("%s already holds a game log" % state_dir)
+    os.makedirs(state_dir, exist_ok=True)
+    reg_out = os.path.join(state_dir, cfg["REGISTRY_FILE"])
+    with open(reg_out, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(registry, f, indent=1)
+    log = store.EventLog(log_path, cfg["LOG_FSYNC"])
+    log.open()
+    try:
+        log.append(dict(kind="init", seed=cfg["GAME_SEED"], teams=teams,
+                        config_digest=config_digest(cfg)))
+        log.append(event)
+    finally:
+        log.close()
+    return snap["day"]

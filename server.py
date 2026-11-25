@@ -299,6 +299,11 @@ def parse_args(argv):
     p.add_argument("--checkpoint-pause-seconds", type=float, default=None)
     p.add_argument("--new-game", action="store_true",
                    help="move any existing game aside and start clean")
+    p.add_argument("--from-snapshot", default=None, metavar="FILE",
+                   help="start from one snapshot file when the log is gone; any existing "
+                        "state directory is moved aside first")
+    p.add_argument("--registry", default=None, metavar="FILE",
+                   help="team registry (teams.json) for --from-snapshot, if not beside the snapshot")
     p.add_argument("--admin-password", default=os.environ.get("FF_ADMIN_PASSWORD"))
     p.add_argument("--stakeholder-password", default=os.environ.get("FF_STAKEHOLDER_PASSWORD"))
     return p.parse_args(argv)
@@ -316,7 +321,15 @@ def main(argv=None):
     admin_pw = args.admin_password or secrets.token_urlsafe(9)
     stake_pw = args.stakeholder_password or secrets.token_urlsafe(9)
     try:
-        game = gamemod.Game(cfg, new_game=args.new_game)
+        if args.from_snapshot:
+            state_dir = cfg["STATE_DIR"]
+            if os.path.isdir(state_dir) and os.listdir(state_dir):
+                aside = "%s.%s" % (state_dir.rstrip("/\\"), time.strftime("%Y%m%d-%H%M%S"))
+                os.rename(state_dir, aside)
+                print("Moved the old state directory to %s" % aside)
+            day = gamemod.start_from_snapshot(cfg, args.from_snapshot, state_dir, args.registry)
+            print("Started from snapshot at day %d" % day)
+        game = gamemod.Game(cfg, new_game=args.new_game and not args.from_snapshot)
     except gamemod.GameError as exc:
         print("Cannot start: %s" % exc, file=sys.stderr)
         return 2
