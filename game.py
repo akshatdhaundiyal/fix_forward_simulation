@@ -132,6 +132,7 @@ class Game:
         self.last_snapshot_wall = None
         self.revealed = False
         self.board = dict(bookings=[], declined={})
+        self._debrief_cache = None
         self.clock = Clock(cfg)
         self.states, self.versions, self._cache = {}, {}, {}
         self.log = store.EventLog(self.log_path, cfg["LOG_FSYNC"])
@@ -539,6 +540,8 @@ class Game:
         with self.lock:
             if not self.revealed:
                 return None
+            if self._debrief_cache and self._debrief_cache[0] == self.log.seq:
+                return self._debrief_cache[1]       # state only changes with a new log line
             series = {n: engine.debrief_series(cfg, st) for n, st in self.states.items()}
             scores = {n: engine.score(cfg, st) for n, st in self.states.items()}
             by_team = lambda best, pool: min(pool, key=lambda n: (-best(n), n)) if pool else None
@@ -561,8 +564,10 @@ class Game:
                 card = cfg["CARD_BY_ID"][cid]
                 gains.append(dict(card=cid, name=card["name"], pitch=card["pitch"],
                                   target_gain=cfg["CALIBRATED_GAIN"].get(cid, card["gain"])))
-            return dict(weeks=cfg["WEEKS"], band_limits=list(cfg["CTO_BAND_LIMITS"]), teams=teams,
-                        gains=gains)
+            result = dict(weeks=cfg["WEEKS"], band_limits=list(cfg["CTO_BAND_LIMITS"]), teams=teams,
+                          gains=gains)
+            self._debrief_cache = (self.log.seq, result)
+            return result
 
     def _name(self, n):
         for t in self.registry["teams"]:

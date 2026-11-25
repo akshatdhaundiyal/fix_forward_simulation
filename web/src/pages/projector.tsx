@@ -21,6 +21,7 @@ export function ProjectorPage() {
   useEffect(() => {
     if (!revealed) return
     const onKey = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.altKey || event.metaKey) return
       const match = DEBRIEF_VIEWS.find((v) => v.key === event.key)
       if (match) setView(match.value)
     }

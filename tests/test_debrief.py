@@ -133,6 +133,35 @@ class DebriefTests(unittest.TestCase):
         self.assertNotIn("week26_leader", [r for t in out["teams"] for r in t["roles"]])
 
 
+class DebriefEdgeTests(unittest.TestCase):
+    def test_a_team_with_only_late_history_is_never_the_week_26_leader_but_can_have_a_fall(self):
+        g, ft, d = gh.open_game(self, teams=3)
+        rig(g, {
+            1: curve(52, lambda w: 5, lambda w: 10),
+            2: [r for r in curve(52, lambda w: 5, lambda w: 50 if w <= 40 else 5) if r["day"] > 26 * 7],  # starts after week 26
+            3: curve(52, lambda w: 5, lambda w: 12),
+        }, penalties={1: 0.0})
+        roles = {t["team"]: t["roles"] for t in g.debrief()["teams"]}
+        self.assertEqual(roles[3], ["week26_leader"])
+        self.assertIn("biggest_collapse", roles[2])
+
+    def test_every_team_starting_after_week_26_leaves_no_leader_and_does_not_fail(self):
+        g, ft, d = gh.open_game(self, teams=2)
+        late = lambda: [r for r in curve(52, lambda w: 5, lambda w: 20) if r["day"] > 26 * 7]
+        rig(g, {1: late(), 2: late()}, penalties={1: 0.0})
+        roles = [r for t in g.debrief()["teams"] for r in t["roles"]]
+        self.assertNotIn("week26_leader", roles)
+        self.assertIn("winner", roles)
+
+    def test_the_result_is_cached_until_the_log_moves(self):
+        g, ft, d = gh.open_game(self, teams=2)
+        g.reveal()
+        first = g.debrief()
+        self.assertIs(g.debrief(), first)
+        g.submit(1, dict(type="set_quality", mode="high"))
+        self.assertIsNot(g.debrief(), first)
+
+
 class DebriefRouteTests(ServerCase):
     def test_the_route_is_403_before_the_reveal_and_json_after(self):
         status, data = self.call("GET", "/api/debrief")
