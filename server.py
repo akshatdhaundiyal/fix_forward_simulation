@@ -142,7 +142,7 @@ class Handler(BaseHTTPRequestHandler):
         if parts[:1] == ["admin"] and len(parts) == 2:
             if not self._is_admin():
                 return self._error(401, "unauthorized")
-            return self._admin(method, parts[1])
+            return self._admin(method, parts[1], query)
         return self._error(404, "not found")
 
     # --- team routes ------------------------------------------------------
@@ -198,13 +198,22 @@ class Handler(BaseHTTPRequestHandler):
         return self._json(200 if result.get("ok") else 400, result)
 
     # --- admin routes -----------------------------------------------------
-    def _admin(self, method, what):
+    def _admin(self, method, what, query=None):
         game = self.app.game
         if method == "GET":
             if what == "status":
                 return self._json(200, game.status())
             if what == "snapshots":
                 return self._json(200, dict(snapshots=game.list_snapshots()))
+            if what == "log":
+                return self._log_chunk(query or {})
+            if what == "registry":
+                return self._send(200, game.registry_text().encode())
+            if what == "snapshot-latest":
+                newest = game.latest_snapshot()
+                if newest is None:
+                    return self._error(404, "no snapshot yet")
+                return self._send(200, newest[1].encode(), extra={"X-Snapshot-Id": newest[0]})
             return self._error(404, "not found")
         data = self._body()
         if data is None:
@@ -232,6 +241,17 @@ class Handler(BaseHTTPRequestHandler):
         else:
             return self._error(404, "not found")
         return self._json(200 if result.get("ok") else 400, result)
+
+    def _log_chunk(self, query):
+        try:
+            offset = int(query.get("offset", ["0"])[0])
+        except ValueError:
+            return self._error(400, "bad request")
+        chunk, error = self.app.game.log_chunk(offset, query.get("check", [None])[0])
+        if chunk is None:
+            return self._error(409, error)
+        return self._send(200, chunk["data"], "application/octet-stream",
+                          extra={"X-Log-Total": str(chunk["total"]), "X-Boot": chunk["boot"]})
 
     # --- static -----------------------------------------------------------
     def _static(self, raw_path):
@@ -299,6 +319,11 @@ def parse_args(argv):
     p.add_argument("--checkpoint-pause-seconds", type=float, default=None)
     p.add_argument("--new-game", action="store_true",
                    help="move any existing game aside and start clean")
+    p.add_argument("--from-snapshot", default=None, metavar="FILE",
+                   help="start from one snapshot file when the log is gone; any existing "
+                        "state directory is moved aside first")
+    p.add_argument("--registry", default=None, metavar="FILE",
+                   help="team registry (teams.json) for --from-snapshot, if not beside the snapshot")
     p.add_argument("--admin-password", default=os.environ.get("FF_ADMIN_PASSWORD"))
     p.add_argument("--stakeholder-password", default=os.environ.get("FF_STAKEHOLDER_PASSWORD"))
     return p.parse_args(argv)
@@ -316,7 +341,11 @@ def main(argv=None):
     admin_pw = args.admin_password or secrets.token_urlsafe(9)
     stake_pw = args.stakeholder_password or secrets.token_urlsafe(9)
     try:
-        game = gamemod.Game(cfg, new_game=args.new_game)
+        if args.from_snapshot:
+            day = gamemod.start_from_snapshot(cfg, args.from_snapshot, cfg["STATE_DIR"], args.registry,
+                                              move_aside=True)
+            print("Started from snapshot at day %d; any old state directory was moved aside" % day)
+        game = gamemod.Game(cfg, new_game=args.new_game and not args.from_snapshot)
     except gamemod.GameError as exc:
         print("Cannot start: %s" % exc, file=sys.stderr)
         return 2

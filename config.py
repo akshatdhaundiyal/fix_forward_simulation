@@ -348,6 +348,13 @@ CHECKPOINT_PAUSE_SECONDS = 420
 CHECKPOINT_WARNING_SECONDS = 30
 CLOCK_POLL_SECONDS = 0.05              # how often the runner asks the clock what is due
 
+# --- spare laptop ---------------------------------------------------------
+# The spec asks for a copy every 30 seconds. A byte-range pull is cheap, so the
+# default is tighter, which shrinks the actions at risk on a takeover.
+REPLICATE_INTERVAL_SECONDS = 5
+REPLICATE_CHUNK_BYTES = 1000000        # most of the log one pull returns
+REPLICATE_CHECK_BYTES = 64             # tail of the follower's copy the primary checks
+
 # --- snapshots ------------------------------------------------------------
 SNAPSHOT_INTERVAL_SECONDS = 5
 SNAPSHOT_KEEP_RECENT = 12
@@ -403,7 +410,7 @@ SERVER_ONLY_KEYS = [
     "ACTION_SPECS", "CALLER_ACTIONS", "CALIBRATION_FILE", "RECORD_HISTORY", "RECORD_SLICES",
     "TELEMETRY_WINDOW_DAYS", "CALIBRATION_TOLERANCE",
     "STAKEHOLDER_ROLES", "BOOKINGS_PER_ROLE_PER_QUARTER", "WHALE_LEAD_CARD", "CTO_BAND_LIMITS",
-    "SCRIPT_CARDS",
+    "SCRIPT_CARDS", "REPLICATE_INTERVAL_SECONDS", "REPLICATE_CHUNK_BYTES", "REPLICATE_CHECK_BYTES",
 ]
 
 # --- recording ------------------------------------------------------------
