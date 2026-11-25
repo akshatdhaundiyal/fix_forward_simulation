@@ -16,6 +16,7 @@ import time
 import engine
 import store
 from clock import Clock
+from config import booking_quarter
 
 
 class GameError(Exception):
@@ -111,6 +112,7 @@ class Game:
         self.last_snapshot_seq = 0
         self.last_snapshot_wall = None
         self.revealed = False
+        self.board = dict(bookings=[], declined={})
         self.clock = Clock(cfg)
         self.states, self.versions, self._cache = {}, {}, {}
         self.log = store.EventLog(self.log_path, cfg["LOG_FSYNC"])
@@ -149,6 +151,7 @@ class Game:
             raise StartupRefused("the saved team list does not match the event log")
         states = {n: engine.new_state(cfg, n, init["seed"]) for n in init["teams"]}
         speed, revealed = 1.0, False
+        board = dict(bookings=[], declined={})
         for e in effective[1:]:
             kind = e["kind"]
             if kind == "action":
@@ -156,6 +159,16 @@ class Game:
                 if st["day"] != e["day"]:
                     raise StartupRefused("action at line %d is out of order" % e["seq"])
                 engine.apply(cfg, st, e["action"])
+                if e["action"].get("type") == "decline_result":
+                    board["declined"][e["team"]] = e["action"].get("ticks")
+            elif kind == "booking":
+                board["bookings"].append(dict(
+                    id=e["seq"], team=e["team"], role=e["role"], quarter=e["quarter"],
+                    day=e["day"], done=False))
+            elif kind == "booking_done":
+                for b in board["bookings"]:
+                    if b["id"] == e["booking"]:
+                        b["done"] = True
             elif kind == "tick":
                 for st in states.values():
                     engine.step(cfg, st)
@@ -168,11 +181,12 @@ class Game:
                 speed = e["value"]
             elif kind == "system" and e.get("op") == "reveal":
                 revealed = True
-        return dict(states=states, speed=speed, revealed=revealed)
+        return dict(states=states, speed=speed, revealed=revealed, board=board)
 
     def _adopt(self, result):
         self.states = result["states"]
         self.revealed = result["revealed"]
+        self.board = result["board"]
         day = next(iter(self.states.values()))["day"]
         self.clock.restored(day, result["speed"])
         for n in self.states:
@@ -242,7 +256,133 @@ class Game:
                            "admin")
 
     def decline_result(self, team, ticks):
-        return self.submit(team, dict(type="decline_result", ticks=ticks), "admin")
+        """Operator entry of a decline result. Same once-per-team rule as the stakeholder
+        screen; a mistake is corrected with an admin edit of Whale trust and a reason."""
+        with self.lock:
+            if team in self.board["declined"]:
+                return dict(ok=False, error="a result is already entered for this team; "
+                                            "correct Whale trust with an admin edit")
+            result = self.submit(team, dict(type="decline_result", ticks=ticks), "admin")
+            if result.get("ok"):
+                self.board["declined"][team] = ticks
+            return result
+
+    # --- stakeholders -----------------------------------------------------
+    def _role(self, role):
+        return next((r for r in self.cfg["STAKEHOLDER_ROLES"] if r["id"] == role), None)
+
+    def book(self, team, role):
+        """A team books a stakeholder for the current quarter, first come first served."""
+        cfg = self.cfg
+        with self.lock:
+            self._check_open()
+            if team not in self.states or self._role(role) is None:
+                return dict(ok=False, error="unknown stakeholder")
+            day = self.clock.day
+            quarter = booking_quarter(cfg, day)
+            taken = [b for b in self.board["bookings"]
+                     if b["role"] == role and b["quarter"] == quarter]
+            if any(b["team"] == team for b in taken):
+                return dict(ok=False, error="your team has already booked this stakeholder this quarter")
+            if len(taken) >= cfg["BOOKINGS_PER_ROLE_PER_QUARTER"]:
+                return dict(ok=False, error="all places with this stakeholder are taken this quarter")
+            seq = self._log(dict(kind="booking", team=team, role=role, quarter=quarter, day=day))
+            self.board["bookings"].append(dict(id=seq, team=team, role=role, quarter=quarter,
+                                               day=day, done=False))
+            return dict(ok=True, booking=seq)
+
+    def mark_done(self, booking_id):
+        with self.lock:
+            self._check_open()
+            found = None
+            if isinstance(booking_id, int) and not isinstance(booking_id, bool):
+                found = next((b for b in self.board["bookings"] if b["id"] == booking_id), None)
+            if found is None:
+                return dict(ok=False, error="no such booking")
+            if found["done"]:
+                return dict(ok=False, error="that meeting is already marked done")
+            self._log(dict(kind="booking_done", booking=booking_id))
+            found["done"] = True
+            return dict(ok=True)
+
+    def stakeholder_decline(self, team, ticks):
+        """Enter a team's decline-conversation result once; Whale trust moves once."""
+        cfg = self.cfg
+        with self.lock:
+            self._check_open()
+            if isinstance(team, bool) or not isinstance(team, int) or team not in self.states:
+                return dict(ok=False, error="no such team")
+            top = max(cfg["DECLINE_TRUST"])
+            if isinstance(ticks, bool) or not isinstance(ticks, int) or not 0 <= ticks <= top:
+                return dict(ok=False, error="ticks must be 0 to %d" % top)
+            if team in self.board["declined"]:
+                return dict(ok=False, error="a result is already entered for this team")
+            result = self.submit(team, dict(type="decline_result", ticks=ticks), "stakeholder")
+            if result.get("ok"):
+                self.board["declined"][team] = ticks
+            return result
+
+    def team_bookings(self, team):
+        """What a team may see about stakeholder places: its own bookings and the counts."""
+        cfg = self.cfg
+        with self.lock:
+            quarter = booking_quarter(cfg, self.clock.day)
+            roles = []
+            for r in cfg["STAKEHOLDER_ROLES"]:
+                taken = [b for b in self.board["bookings"]
+                         if b["role"] == r["id"] and b["quarter"] == quarter]
+                waiting = [b for b in self.board["bookings"]
+                           if b["role"] == r["id"] and not b["done"]]
+                own = next((b for b in taken if b["team"] == team), None)
+                mine = None
+                if own:
+                    pos = None if own["done"] else 1 + sum(1 for b in waiting if b["id"] < own["id"])
+                    mine = dict(id=own["id"], position=pos, done=own["done"])
+                roles.append(dict(
+                    role=r["id"], title=r["title"], mine=mine,
+                    places_left=max(0, cfg["BOOKINGS_PER_ROLE_PER_QUARTER"] - len(taken))))
+            return dict(quarter=quarter, per_quarter=cfg["BOOKINGS_PER_ROLE_PER_QUARTER"],
+                        roles=roles)
+
+    def _cto_band(self, uod):
+        green, amber = self.cfg["CTO_BAND_LIMITS"]
+        return "green" if uod <= green else "amber" if uod <= amber else "red"
+
+    def stakeholder_board(self):
+        """Everything the stakeholder screen shows. Built field by field: a band, three
+        yes-or-no facts and booking order, never a debt number."""
+        cfg = self.cfg
+        with self.lock:
+            quarter = booking_quarter(cfg, self.clock.day)
+            cards = cfg["SCRIPT_CARDS"][quarter]
+            bands = cards["cto"].get("bands")
+            teams = []
+            for n in sorted(self.states):
+                st = self.states[n]
+                facts = dict(
+                    data_isolation_shipped=cfg["WHALE_LEAD_CARD"] in st["shipped"],
+                    outage_hit=any(ev["kind"] == "outage" for ev in st["events"]),
+                    applied=bool(st["b1_applied"]))
+                band = self._cto_band(st["uod"])
+                lines = [c["text"] for c in cards["whale_lead"].get("conditional", [])
+                         if facts[c["when"]] == c["is_true"]]
+                teams.append(dict(
+                    team=n, name=self._name(n), band=band,
+                    cto_line=bands[band] if bands else None,
+                    whale=dict(facts=facts, lines=lines),
+                    declined=n in self.board["declined"]))
+            roles = []
+            for r in cfg["STAKEHOLDER_ROLES"]:
+                card = cards[r["id"]]
+                roles.append(dict(
+                    role=r["id"], title=r["title"], unprompted=card.get("unprompted"),
+                    asked=[dict(question=q, answer=a) for q, a in card["asked"]],
+                    after=card.get("after")))
+            bookings = [dict(id=b["id"], team=b["team"], name=self._name(b["team"]),
+                             role=b["role"], quarter=b["quarter"], done=b["done"])
+                        for b in self.board["bookings"]]
+            return dict(clock=self.clock.status(self.now()), quarter=quarter, roles=roles,
+                        teams=teams, bookings=bookings)
 
     # --- time -------------------------------------------------------------
     def pump(self, now=None):
@@ -395,6 +535,7 @@ class Game:
             payload = dict(
                 seq=seq, day=day, digest=_all_digest(self.states), speed=self.clock.speed,
                 revealed=self.revealed,
+                board=json.loads(json.dumps(self.board)),
                 teams={str(n): {k: v for k, v in st.items() if k != "history"}
                        for n, st in self.states.items()})
             text = json.dumps(payload, separators=(",", ":"))
