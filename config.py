@@ -199,6 +199,105 @@ ALERTS = {
                        text="Mid-market accounts are evaluating a competitor over reporting."),
 }
 
+# --- live stakeholders (spec section 9) -----------------------------------
+# None of this changes team state, so the wording and caps may be edited
+# between runs without starting a new game (see SERVER_ONLY_KEYS).
+STAKEHOLDER_ROLES = [
+    dict(id="vp_sales", title="VP Sales"),
+    dict(id="whale_lead", title="Whale Alpha account lead"),
+    dict(id="cto", title="CTO"),
+]
+BOOKINGS_PER_ROLE_PER_QUARTER = 5
+WHALE_LEAD_CARD = "B2"                  # the data isolation card the Whale lead asks about
+# CTO traffic light on a team's hidden debt: green up to and including the
+# first number, amber up to the second, red above. Only the band is ever served.
+CTO_BAND_LIMITS = (15.0, 30.0)
+
+
+def booking_quarter(cfg, day):
+    """Quarter a booking made on this day counts toward.
+
+    The break after a quarter runs with the clock on that quarter's last day, so
+    it counts toward that quarter. Day 0 counts as quarter 1.
+    """
+    per_quarter = cfg["WEEKS_PER_QUARTER"] * cfg["DAYS_PER_WEEK"]
+    return min(max(1, -(-day // per_quarter)), cfg["WEEKS"] // cfg["WEEKS_PER_QUARTER"])
+
+
+# Script cards from spec 9.2. Per quarter and role: what they say unprompted
+# (None where the CTO's traffic-light line stands in), what they say only if
+# asked, lines that depend on the team (Whale lead: `when` names a fact on the
+# board and `is_true` the value that triggers it), and the CTO's lines per band.
+# The CTO band lines and the Q4 audit line are FIRST DRAFTS for the organiser.
+SCRIPT_CARDS = {
+    1: {
+        "vp_sales": dict(
+            unprompted="Every prospect asks about AI Copilot. That is ₹6 Cr of pipeline. The mobile app loses us demos.",
+            asked=[("Has anyone committed budget for Copilot?", "No. It is demo interest so far.")]),
+        "whale_lead": dict(
+            unprompted="We need SSO and audit logs for our security review.",
+            asked=[("Would you pay for AI Copilot?", "Nice to have. We would not pay extra."),
+                   ("Anything else coming?", "Our security team has started asking about data isolation.")]),
+        "cto": dict(
+            unprompted="Latency is creeping up. If you ship a lot this quarter, fund the quality buffer.",
+            asked=[("Which features are risky?", "Copilot is the riskiest by far. SSO is moderate. Onboarding is safe.")]),
+    },
+    2: {
+        "vp_sales": dict(
+            unprompted="Whale Alpha will sign ₹5 Cr for the compliance dashboard. Biggest deal of the year. Partners are also lining up for the marketplace API, ₹5 Cr.",
+            asked=[("Have partners signed?", "Letters of interest, no contracts."),
+                   ("What does the dashboard cost to maintain?", "They will want changes every quarter.")]),
+        "whale_lead": dict(
+            unprompted="We want the compliance dashboard built for us.",
+            asked=[("What if we say no?", "We would be disappointed. It is not why we would leave."),
+                   ("What would make you leave?", "Data isolation. Our security review closes at the end of Q3.")]),
+        "cto": dict(
+            unprompted=None,
+            asked=[("What is the dashboard like to build?",
+                    "Custom code we maintain forever. It is one of the riskiest items on the menu.")],
+            bands=dict(
+                green="The platform looks healthy. Watch what you ship next.",
+                amber="Errors are creeping up. I would fund a quality buffer before the next big build.",
+                red="The platform is not healthy. Stop stacking features until some of this is paid down.")),
+    },
+    3: {
+        "vp_sales": dict(
+            unprompted="Whale Beta will sign ₹4 Cr for a custom integration. Competitors just launched AI meeting summaries; that is ₹4 Cr of pipeline.",
+            asked=[("Is there budget behind AI summaries?", "Nobody has attached budget.")]),
+        "whale_lead": dict(
+            unprompted=None,
+            asked=[("Would you buy the analytics add-on?", "Yes, we would pay for that.")],
+            conditional=[
+                dict(when="data_isolation_shipped", is_true=False,
+                     text="Our security review closes this quarter. Is data isolation shipping?"),
+                dict(when="outage_hit", is_true=True,
+                     text="Your outage hit our operations. Leadership is asking about alternatives.")]),
+        "cto": dict(
+            unprompted=None,
+            asked=[("What about mid-market?", "Support tickets say they are unhappy with reporting.")],
+            bands=dict(
+                green="Stable so far. The reliability work is paying off.",
+                amber="Latency and errors are rising. Peak season is close, so plan for it.",
+                red="I am worried about peak season. Without hardening, expect an outage.")),
+    },
+    4: {
+        "vp_sales": dict(
+            unprompted="A promo campaign gets us a quick ₹3 Cr before the round closes.",
+            asked=[("Will promo customers stay?", "Mostly discount-seekers. Expect fewer than half to stick.")]),
+        "whale_lead": dict(
+            unprompted="Investors will call us for a reference. We would expand if the expansion pack ships.",
+            asked=[("What will you tell investors?", "Depends on how this year went for us.")]),
+        "cto": dict(
+            unprompted=None,
+            asked=[("What clears the most?", "The audit readiness sprint.")],
+            bands=dict(
+                green="The platform is in good shape going into the round.",
+                amber="There are still shortcuts on the platform. Do not add many more.",
+                red="The platform is carrying a lot of shortcuts. Expect them to cost you at the audit."),
+            after="Auditors arrive at quarter end. Every unresolved shortcut gets priced."),
+    },
+}
+
 # --- scoring --------------------------------------------------------------
 TRUST_MULTIPLE_BASE = 2.0
 TRUST_MULTIPLE_SLOPE = 0.03
@@ -288,6 +387,7 @@ CALLER_ACTIONS = {
              "targeted_fix", "patch", "apply_b1"],
     "admin": ["trigger_incident", "cancel_incident", "admin_edit", "decline_result"],
     "system": ["award_bespoke"],
+    "stakeholder": ["decline_result"],
 }
 
 # Settings that may differ between runs of the same game. Everything else is
@@ -302,6 +402,8 @@ SERVER_ONLY_KEYS = [
     "MAX_STRING_LENGTH", "MAX_TEXT_LENGTH", "MAX_NUMBER", "TEAM_POLL_SECONDS", "PROJECTOR_POLL_SECONDS",
     "ACTION_SPECS", "CALLER_ACTIONS", "CALIBRATION_FILE", "RECORD_HISTORY", "RECORD_SLICES",
     "TELEMETRY_WINDOW_DAYS", "CALIBRATION_TOLERANCE",
+    "STAKEHOLDER_ROLES", "BOOKINGS_PER_ROLE_PER_QUARTER", "WHALE_LEAD_CARD", "CTO_BAND_LIMITS",
+    "SCRIPT_CARDS",
 ]
 
 # --- recording ------------------------------------------------------------

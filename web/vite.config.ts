@@ -18,6 +18,7 @@ export default defineConfig({
         team: path.resolve(import.meta.dirname, "team.html"),
         projector: path.resolve(import.meta.dirname, "projector.html"),
         admin: path.resolve(import.meta.dirname, "admin.html"),
+        stakeholder: path.resolve(import.meta.dirname, "stakeholder.html"),
       },
     },
   },
