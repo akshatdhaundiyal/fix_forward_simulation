@@ -16,6 +16,7 @@ import time
 import bots
 
 ADMIN_HEADER = "X-Admin-Password"
+STAKEHOLDER_HEADER = "X-Stakeholder-Password"
 # A rejection from the action table, as opposed to a game rule saying no.
 VALIDATION_PREFIXES = ("action must be", "action not allowed", "unknown field", "missing field",
                        "bad value", "exactly one of")
@@ -44,6 +45,31 @@ class Client:
 
     def admin(self, method, path, password, body=None):
         return self.request(method, path, body, {ADMIN_HEADER: password})
+
+
+class StakeholderDesk:
+    """What a booking console and the stakeholder screen do, over the same routes they use."""
+
+    def __init__(self, client, password):
+        self.client, self.password = client, password
+
+    def book(self, code, role):
+        return self.client.request("POST", "/api/team/%s/bookings" % code, {"role": role})
+
+    def board(self):
+        status, data = self.client.request("GET", "/api/stakeholder/board",
+                                           headers={STAKEHOLDER_HEADER: self.password})
+        if status != 200:
+            raise RuntimeError("the stakeholder board answered %s" % status)
+        return data
+
+    def meet(self, booking):
+        return self.client.request("POST", "/api/stakeholder/done", {"booking": booking},
+                                   {STAKEHOLDER_HEADER: self.password})
+
+    def decline(self, team, ticks):
+        return self.client.request("POST", "/api/stakeholder/decline", {"team": team, "ticks": ticks},
+                                   {STAKEHOLDER_HEADER: self.password})
 
 
 class Report:
