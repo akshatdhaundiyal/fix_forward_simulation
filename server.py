@@ -342,13 +342,9 @@ def main(argv=None):
     stake_pw = args.stakeholder_password or secrets.token_urlsafe(9)
     try:
         if args.from_snapshot:
-            state_dir = cfg["STATE_DIR"]
-            if os.path.isdir(state_dir) and os.listdir(state_dir):
-                aside = "%s.%s" % (state_dir.rstrip("/\\"), time.strftime("%Y%m%d-%H%M%S"))
-                os.rename(state_dir, aside)
-                print("Moved the old state directory to %s" % aside)
-            day = gamemod.start_from_snapshot(cfg, args.from_snapshot, state_dir, args.registry)
-            print("Started from snapshot at day %d" % day)
+            day = gamemod.start_from_snapshot(cfg, args.from_snapshot, cfg["STATE_DIR"], args.registry,
+                                              move_aside=True)
+            print("Started from snapshot at day %d; any old state directory was moved aside" % day)
         game = gamemod.Game(cfg, new_game=args.new_game and not args.from_snapshot)
     except gamemod.GameError as exc:
         print("Cannot start: %s" % exc, file=sys.stderr)

@@ -163,7 +163,7 @@ def main(argv=None):
         except PermissionError as exc:
             print("STOPPED: %s." % exc, file=sys.stderr)
             return 2
-        except OSError as exc:
+        except (OSError, http.client.HTTPException) as exc:
             print("%s could not reach the primary (%s); will retry" % (time.strftime("%H:%M:%S"), exc),
                   flush=True)
             if args.once:

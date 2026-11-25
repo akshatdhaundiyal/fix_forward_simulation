@@ -105,6 +105,39 @@ class ReplicationTests(FollowerCase):
             f.pull_log()
 
 
+class MainExitCodeTests(FollowerCase):
+    def run_main(self, port, password):
+        spare = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, spare, True)
+        return replicate.main(["--primary", "127.0.0.1:%d" % port, "--admin-password", password,
+                               "--state-dir", os.path.join(spare, "state"), "--once"])
+
+    def test_exit_codes_say_why_it_stopped(self):
+        self.assertEqual(self.run_main(self.port, ADMIN), 0)
+        self.assertEqual(self.run_main(self.port, "wrong"), 2)
+        self.assertEqual(self.run_main(1, ADMIN), 1)            # nothing listening
+
+
+class LogRouteTests(FollowerCase):
+    def test_a_bad_offset_is_a_400_and_a_nonzero_offset_without_a_check_is_a_409(self):
+        self.act()
+        head = {server.ADMIN_HEADER: ADMIN}
+        self.assertEqual(self.call("GET", "/api/admin/log?offset=abc", None, head)[0], 400)
+        self.assertEqual(self.call("GET", "/api/admin/log?offset=10", None, head)[0], 409)
+        self.assertEqual(self.call("GET", "/api/admin/log?offset=-1", None, head)[0], 409)
+
+
+class TinyChunkTests(FollowerCase):
+    cfg_over = dict(REPLICATE_CHUNK_BYTES=10)
+
+    def test_a_line_longer_than_a_chunk_is_sent_whole_so_the_follower_never_stalls(self):
+        f, _ = self.follower()
+        self.act(3)
+        f.pull_once()
+        with open(self.g.log_path, "rb") as a, open(f.log_path, "rb") as b:
+            self.assertEqual(a.read(), b.read())
+
+
 class ChunkedReplicationTests(FollowerCase):
     cfg_over = dict(REPLICATE_CHUNK_BYTES=300)
 

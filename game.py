@@ -45,8 +45,11 @@ def _read_baseline(event, fresh_states):
         raise StartupRefused("the baseline does not match its own digest")
     board = event.get("board") or {}
     declined = {int(n): t for n, t in (board.get("declined") or {}).items()}
-    return (teams, event["speed"], event["revealed"],
-            dict(bookings=list(board.get("bookings") or []), declined=declined))
+    # Booking ids are log sequence numbers, and this log starts again from 1. Carried
+    # bookings take ids below zero, in their old order, so no new booking can collide.
+    carried = sorted(board.get("bookings") or [], key=lambda b: b["id"])
+    bookings = [dict(b, id=i - len(carried)) for i, b in enumerate(carried)]
+    return (teams, event["speed"], event["revealed"], dict(bookings=bookings, declined=declined))
 
 def config_digest(cfg):
     """Digest of every setting that is part of the game rather than the server."""
@@ -569,7 +572,13 @@ class Game:
                 f.seek(offset)
                 data = f.read(min(total - offset, cfg["REPLICATE_CHUNK_BYTES"]))
             if offset + len(data) < total:
-                data = data[:data.rfind(b"\n") + 1]
+                cut = data.rfind(b"\n") + 1
+                if not cut:                    # one line longer than a chunk: send that line whole
+                    with open(self.log_path, "rb") as f:
+                        f.seek(offset)
+                        data = f.read(total - offset)
+                    cut = data.find(b"\n") + 1
+                data = data[:cut]
             return dict(data=data, total=total, boot=self.boot), None
 
     def registry_text(self):
@@ -633,12 +642,14 @@ class Game:
             self.log.close()
 
 
-def start_from_snapshot(cfg, snapshot_path, state_dir, registry_path=None):
+def start_from_snapshot(cfg, snapshot_path, state_dir, registry_path=None, move_aside=False):
     """Create a state directory whose log is `init` plus a `baseline` from one snapshot.
 
     For when the log is gone. The team registry (codes and names) is not in a
     snapshot, so it is copied from beside the snapshot or from registry_path.
-    Nothing is written until every check has passed. Returns the day started at.
+    Nothing is written or moved until every check has passed and both inputs are in
+    memory. With move_aside, an existing state directory (the snapshot may live inside
+    it) is renamed out of the way first. Returns the day started at.
     """
     try:
         with open(snapshot_path, "r", encoding="utf-8") as f:
@@ -658,6 +669,8 @@ def start_from_snapshot(cfg, snapshot_path, state_dir, registry_path=None):
     event = dict(kind="baseline", day=snap["day"], speed=snap["speed"], revealed=snap["revealed"],
                  digest=snap["digest"], board=snap.get("board") or {}, teams=snap["teams"])
     _read_baseline(event, fresh)                       # raises StartupRefused on any mismatch
+    if move_aside and os.path.isdir(state_dir) and os.listdir(state_dir):
+        os.rename(state_dir, "%s.%s" % (state_dir.rstrip("/\\"), time.strftime("%Y%m%d-%H%M%S")))
     log_path = os.path.join(state_dir, cfg["LOG_FILE"])
     if os.path.exists(log_path) and os.path.getsize(log_path):
         raise StartupRefused("%s already holds a game log" % state_dir)

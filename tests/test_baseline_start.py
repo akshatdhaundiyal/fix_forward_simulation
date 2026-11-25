@@ -15,11 +15,13 @@ class BaselineStartTests(unittest.TestCase):
     def source(self, days=40):
         g, ft, d = gh.open_game(self, teams=3)
         g.clock_op("resume")
+        g.clock_op("speed", 2)
         g.submit(1, dict(type="queue_add", card="A2"))
         g.submit(2, dict(type="queue_add", card="A3"))
         g.book(1, "cto")
         g.stakeholder_decline(3, 3)
         gh.advance_days(g, ft, days)
+        g.reveal()
         snap_id = g.snapshot_now()
         path = os.path.join(d, "state", "snapshots", snap_id + ".json")
         return g, ft, d, path
@@ -41,6 +43,10 @@ class BaselineStartTests(unittest.TestCase):
         self.assertEqual(gh.digests(again), at_snapshot)
         st = again.clock.status(ft2.t)
         self.assertEqual((st["day"], st["running"]), (g.clock.day, False))
+        self.assertEqual(again.clock.speed, 2)
+        self.assertTrue(again.revealed)
+        self.assertEqual({t["team"]: t["code"] for t in again.registry["teams"]},
+                         {t["team"]: t["code"] for t in g.registry["teams"]})
         again.clock_op("resume")
         gh.advance_days(again, ft2, 28)
         gh.advance_days(g, ft, 28)
@@ -109,6 +115,52 @@ class BaselineStartTests(unittest.TestCase):
             with self.assertRaises(gamemod.StartupRefused, msg=name):
                 gamemod.start_from_snapshot(g.cfg, snap_path, out, registry)
             self.assertFalse(os.path.exists(os.path.join(out, g.cfg["LOG_FILE"])), name)
+
+    def test_a_snapshot_inside_the_state_directory_being_replaced_still_works(self):
+        g, ft, d, path = self.source(10)
+        g.close()
+        state = os.path.join(d, "state")
+        gamemod.start_from_snapshot(g.cfg, path, state, move_aside=True)
+        self.assertTrue(os.path.isdir(state))
+        asides = [n for n in os.listdir(d) if n.startswith("state.")]
+        self.assertEqual(len(asides), 1)
+        self.assertTrue(os.path.exists(os.path.join(d, asides[0], g.cfg["LOG_FILE"])))
+        again = gamemod.Game(g.cfg, state, now=gh.FakeTime())
+        self.addCleanup(again.close)
+        self.assertEqual(gh.digests(again), gh.digests(g))
+
+    def test_a_refused_snapshot_moves_nothing_aside(self):
+        g, ft, d, path = self.source(10)
+        g.close()
+        with self.assertRaises(gamemod.StartupRefused):
+            gamemod.start_from_snapshot(g.cfg, path, os.path.join(d, "state"),
+                                        os.path.join(d, "no-teams.json"), move_aside=True)
+        self.assertEqual([n for n in os.listdir(d) if n.startswith("state.")], [])
+        self.assertTrue(os.path.exists(os.path.join(d, "state", g.cfg["LOG_FILE"])))
+
+    def test_new_bookings_after_a_baseline_start_cannot_collide_with_carried_ones(self):
+        g, ft, d, path = self.source(10)
+        g.book(2, "cto")
+        g.book(3, "cto")
+        g.snapshot_now()
+        newest = sorted(n for n in os.listdir(os.path.join(d, "state", "snapshots")) if n.endswith(".json"))[-1]
+        out = self.target()
+        gamemod.start_from_snapshot(g.cfg, os.path.join(d, "state", "snapshots", newest), out,
+                                    os.path.join(d, "state", g.cfg["REGISTRY_FILE"]))
+        again = gamemod.Game(g.cfg, out, now=gh.FakeTime())
+        self.addCleanup(again.close)
+        carried = [b["id"] for b in again.board["bookings"]]
+        self.assertEqual(len(carried), len(set(carried)))
+        for i in range(10):                                     # push the new log past any old id
+            again.submit(1, dict(type="set_quality", mode="high" if i % 2 else "low"))
+        fresh = again.book(1, "vp_sales")["booking"]
+        self.assertNotIn(fresh, carried)
+        self.assertTrue(again.mark_done(carried[0])["ok"])
+        self.assertFalse(next(b for b in again.board["bookings"] if b["id"] == fresh)["done"])
+        third = gamemod.Game(g.cfg, out, now=gh.FakeTime())
+        self.addCleanup(third.close)
+        self.assertEqual([(b["role"], b["team"], b["done"]) for b in third.board["bookings"]],
+                         [(b["role"], b["team"], b["done"]) for b in again.board["bookings"]])
 
     def test_a_directory_that_already_holds_a_log_is_refused(self):
         g, ft, d, path = self.source(10)

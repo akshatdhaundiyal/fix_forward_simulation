@@ -33,6 +33,7 @@ P99_BAR_SECONDS = 1.0            # slowest 1% of requests
 TICK_P95_OVER = 0.25             # clock ticks may run this much late at the 95th percentile
 LATENESS_MIN_SECONDS_PER_DAY = 0.5   # below this the 20 ms clock sampling is too coarse to judge
 OK_STATUSES = (200, 304)
+MIN_OBSERVED_TICKS = 50          # at a judgeable pace, fewer ordinary ticks than this means the sampler failed
 SAMPLE_SECONDS = 0.02
 WINDOW_EVERY = 5                 # a console with a window tab open refetches it every 5th poll
 FUNNEL_DAYS = 91
@@ -195,7 +196,9 @@ def evaluate(rows, ticks, seconds_per_day):
         problems.append("p99 latency %.0f ms is over %.0f ms" % (p99 * 1000, P99_BAR_SECONDS * 1000))
     if seconds_per_day >= LATENESS_MIN_SECONDS_PER_DAY:
         gaps = tick_gaps(ticks)
-        if gaps:
+        if len(gaps) < MIN_OBSERVED_TICKS:
+            problems.append("only %d ordinary ticks were observed, too few to judge the clock" % len(gaps))
+        else:
             late = percentile(gaps, 0.95) / seconds_per_day - 1
             if late > TICK_P95_OVER:
                 problems.append("clock ticks ran %.0f%% late at the 95th percentile" % (late * 100))

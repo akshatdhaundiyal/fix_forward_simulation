@@ -64,9 +64,16 @@ class ServerProc:
         if new_game:
             cmd.append("--new-game")
         self.spawned = time.time()
+        self.codes, self.notes, self.ready_after, self.printed_after = {}, [], None, None
         self.p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
                                   cwd=ROOT, text=True)
-        self.codes, self.notes = {}, []
+        try:
+            self._read_start(teams)
+        except BaseException:
+            self.stop()
+            raise
+
+    def _read_start(self, teams):
         while True:
             line = self._line()
             if "server on port" in line:
@@ -238,6 +245,9 @@ def recover(scenario, case, state_dir, teams, acked, killed_at, extra_checks=Non
     proc = ServerProc(state_dir, teams)
     try:
         seconds = proc.wait_ready()
+        if proc.clock()["day"] < killed_at:
+            problems.append("restarted at day %s, before the day %s the server was killed at"
+                            % (proc.clock()["day"], killed_at))
         if proc.clock()["day"] != tick_count(state_dir):
             problems.append("restarted day %s is not the logged tick count %s"
                             % (proc.clock()["day"], tick_count(state_dir)))
@@ -349,6 +359,7 @@ def scenario_spare(teams):
     proc = ServerProc(primary, teams)
     stop = threading.Event()
     last_round = [0.0]
+    pulls_failed = []
     try:
         proc.wait_ready()
         follower = replicate.Follower("127.0.0.1:%d" % proc.port, ADMIN, spare)
@@ -359,8 +370,8 @@ def scenario_spare(teams):
                 try:
                     follower.pull_once()
                     last_round[0] = started
-                except (OSError, replicate.Diverged):
-                    pass
+                except (OSError, http.client.HTTPException, replicate.Diverged) as exc:
+                    pulls_failed.append(str(exc))
                 stop.wait(FOLLOW_INTERVAL)
 
         thread = threading.Thread(target=follow, daemon=True)
@@ -373,8 +384,13 @@ def scenario_spare(teams):
         proc.kill()
         stop.set()
         thread.join(timeout=5)
+        if not last_round[0]:
+            raise Failed("the follower never completed a pull (%s)" % (pulls_failed[:1] or "no error"))
         late = [a for a in play.acked if a[2] >= last_round[0]]
         lost = lost_actions(play.acked, spare)
+        if len(lost) > len(play.acked) // 2:
+            raise Failed("the spare holds only %d of %d acknowledged actions"
+                         % (len(play.acked) - len(lost), len(play.acked)))
         unexpected = [a for a in lost if a not in late]
         recovered = recover("spare", "primary killed", spare, teams, [a for a in play.acked if a not in lost],
                             killed_at)
@@ -407,13 +423,9 @@ def scenario_snapshot(teams):
         proc.kill()
         snaps = os.path.join(state, config.SNAPSHOT_DIR)
         newest = sorted(n for n in os.listdir(snaps) if n.endswith(".json"))[-1]
-        keep = os.path.join(tmp, "only-this-snapshot")
-        os.makedirs(keep)
-        shutil.copy(os.path.join(snaps, newest), os.path.join(keep, newest))
-        shutil.copy(os.path.join(state, config.REGISTRY_FILE), os.path.join(keep, config.REGISTRY_FILE))
-        shutil.rmtree(state)                                  # the log is gone
-        again = ServerProc(state, teams, extra=["--from-snapshot", os.path.join(keep, newest),
-                                                "--registry", os.path.join(keep, config.REGISTRY_FILE)])
+        os.remove(os.path.join(state, config.LOG_FILE))       # the log is gone, the snapshots survive
+        again = ServerProc(state, teams, extra=["--from-snapshot", os.path.join(snaps, newest),
+                                                "--registry", os.path.join(state, config.REGISTRY_FILE)])
         try:
             seconds = again.wait_ready()
             problems = []
