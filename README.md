@@ -73,6 +73,7 @@ Measured on the build laptop, 25 November 2026:
 | Start from a bare snapshot after deleting the log | Back in 0.5 s, carried on 28 days | 5 minutes |
 | Rebuild of a 16-team log to day 360 | 2.4 s | 1 minute |
 | Load: 16 teams and 20 consoles, 11,890 requests, one full game | 0 errors, p99 under 70 ms for every kind of request, clock ticks p95 within 6% of target | 0 errors, p99 under 1 s, ticks within 25% |
+| Load at the event pace (13 s per game day, 60 s checkpoint breaks, about 90 minutes): 16 teams, 20 consoles, 78,028 requests | 0 errors, p99 under 90 ms for every kind of request, ticks median 13.023 s and worst 13.065 s, replay after the run passed | 0 errors, p99 under 1 s, ticks within 25% |
 
 ## Where things are
 
